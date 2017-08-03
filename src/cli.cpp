@@ -92,7 +92,7 @@ void init_signals() {
 } // namespace
 
 // valgrind run:
-// valgrind --leak-check=yes --show-reachable=yes --track-origins=yes --error-exitcode=42 --track-fds=yes --suppressions=../../../staticlibs/cmake/resources/valgrind/openssl_malloc.supp  ./bin/wilton ../test/scripts/runWiltonTests.js -m ../../modules.zip
+// valgrind --leak-check=yes --show-reachable=yes --track-origins=yes --error-exitcode=42 --track-fds=yes --suppressions=../deps/cmake/resources/valgrind/openssl_malloc.supp  ./bin/wilton_cli ../test/scripts/runWiltonTests.js -m ../../modules.zip
 
 int main(int argc, char** argv) {    
     try {
