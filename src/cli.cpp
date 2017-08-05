@@ -116,7 +116,6 @@ int main(int argc, char** argv, char** envp) {
         auto apprags = std::vector<std::string>();
         for (int i = launcher_argc + 1; i < argc; i++) {
             apprags.emplace_back(argv[i]);
-            std::cout << "app: " << i << ": " << apprags.back() << std::endl;
         }
 
         // check invalid options
