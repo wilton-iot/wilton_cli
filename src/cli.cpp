@@ -89,12 +89,24 @@ void init_signals() {
     }
 }
 
+std::vector<sl::json::field> collect_env_vars(char** envp) {
+    auto res = std::vector<sl::json::field>();
+    for (char** el = envp; *el != '\0'; el++) {
+        auto var = std::string(*el);
+        auto parts = sl::utils::split(var, '=');
+        if (2 == parts.size()) {
+            res.emplace_back(parts.at(0), parts.at(1));
+        }
+    }
+    return res;
+}
+
 } // namespace
 
 // valgrind run:
 // valgrind --leak-check=yes --show-reachable=yes --track-origins=yes --error-exitcode=42 --track-fds=yes --suppressions=../deps/cmake/resources/valgrind/openssl_malloc.supp  ./bin/wilton_cli ../test/scripts/runWiltonTests.js -m ../../modules.zip
 
-int main(int argc, char** argv) {    
+int main(int argc, char** argv, char** envp) {    
     try {
         // parse laucher args
         int launcher_argc = find_launcher_args_end(argc, argv);
@@ -153,10 +165,14 @@ int main(int argc, char** argv) {
         auto startmodpath = find_statup_module_path(idxfile_or_dir);
         auto appdir = find_app_dir(idxfile_or_dir, startmod);
                 
+        // env vars
+        auto env_vars = collect_env_vars(envp);
+        
         // wilton init
         auto config = sl::json::dumps({
             {"defaultScriptEngine", "duktape"},
             {"applicationDirectory", appdir},
+            {"environmentVariables", std::move(env_vars)},
             {"requireJs", {
                     {"waitSeconds", 0},
                     {"enforceDefine", true},
