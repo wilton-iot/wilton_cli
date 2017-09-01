@@ -11,6 +11,7 @@
 
 #include <popt.h>
 
+#include "staticlib/io.hpp"
 #include "staticlib/json.hpp"
 #include "staticlib/utils.hpp"
 #include "staticlib/tinydir.hpp"
@@ -101,6 +102,57 @@ std::vector<sl::json::field> collect_env_vars(char** envp) {
     return res;
 }
 
+std::string write_temp_one_liner(const std::string& exedir, const std::string& deps, const std::string& code) {
+    // prepare tmp file path
+    auto rsg = sl::utils::random_string_generator();
+    auto name = exedir + "../work/" + rsg.generate(8) + ".js";
+    auto path = sl::tinydir::path(name);
+    
+    // prepare deps
+    auto deps_line = std::string();
+    auto args_line = std::string();
+    if (deps.length() > 0) {
+        auto parts = sl::utils::split(deps, ':');
+        for (size_t i = 0; i < parts.size(); i++) {
+            auto dep = parts.at(i);
+            if (dep.length() > 0) {
+                deps_line.append("\"").append(dep).append("\"");
+                if (i < parts.size() - 1) {
+                    deps_line.append(", ");
+                }
+                auto dep_parts = sl::utils::split(dep, '/');
+                if (dep_parts.size() > 0) {
+                    auto dep_name = dep_parts.back();
+                    args_line.append(dep_name);
+                    if (i < parts.size() - 1) {
+                        args_line.append(", ");
+                    }
+                }
+            }
+        }
+    }
+    std::string tmpl = R"(
+define([{{deps_line}}], function({{args_line}}) {
+    "use strict";
+    return {
+        main: function() {
+            {{code}};
+        }
+    };
+});
+)";
+    auto src = sl::io::make_replacer_source(sl::io::string_source(tmpl), {
+        {"deps_line", deps_line},
+        {"args_line", args_line},
+        {"code", code}
+    }, [](const std::string& err) {
+        std::cerr << err << std::endl;
+    });
+    auto sink = path.open_write();
+    sl::io::copy_all(src, sink);
+    return name;
+}
+
 } // namespace
 
 // valgrind run:
@@ -132,8 +184,16 @@ int main(int argc, char** argv, char** envp) {
             return 0;
         }                
         
+        auto exedir = find_exedir();
+        
         // check startup script
-        auto idxfile_or_dir = opts.indexjs;
+        auto idxfile_or_dir = 0 == opts.exec_one_liner ? opts.indexjs : 
+                write_temp_one_liner(exedir, opts.exec_deps, opts.exec_code);
+        auto tmpcleaner = sl::support::defer([&opts, &idxfile_or_dir]() STATICLIB_NOEXCEPT {
+            if (0 != opts.exec_one_liner) {
+                std::remove(idxfile_or_dir.c_str());
+            }
+        });
         auto indexpath = sl::tinydir::path(idxfile_or_dir);
         if (!indexpath.exists()) {
             std::cerr << "ERROR: specified script file not found: [" + idxfile_or_dir + "]" << std::endl;
@@ -141,9 +201,7 @@ int main(int argc, char** argv, char** envp) {
         }
         if (indexpath.is_directory() && '/' != idxfile_or_dir.back()) {
             idxfile_or_dir.push_back('/');
-        }
-        
-        auto exedir = find_exedir();
+        }                
         
         // check modules dir
         auto moddir = !opts.modules_dir_or_zip.empty() ? opts.modules_dir_or_zip : exedir + "../js.zip";

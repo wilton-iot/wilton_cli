@@ -30,13 +30,18 @@ public:
     // public options list
     std::string modules_dir_or_zip;
     std::string startup_module_name;
+    int exec_one_liner = 0;
     int help = 0;
+    
     std::string indexjs;
+    std::string exec_deps;
+    std::string exec_code;
 
     cli_options(int argc, char** argv) :
     table({
         { "js-modules-dir-or-zip", 'm', POPT_ARG_STRING, std::addressof(modules_dir_or_zip_ptr), static_cast<int> ('m'), "Path to JavaScript modules directory or zip bundle", nullptr},
         { "startup-module-name", 's', POPT_ARG_STRING, std::addressof(startup_module_name_ptr), static_cast<int> ('s'), "Name of the index module", nullptr},
+        { "exec-one-liner", 'e', POPT_ARG_NONE, std::addressof(exec_one_liner), static_cast<int> ('e'), "Execute one-liner script", nullptr},
         { "help", 'h', POPT_ARG_NONE, std::addressof(help), static_cast<int> ('h'), "Show this help message", nullptr},
         { nullptr, 0, 0, nullptr, 0, nullptr, nullptr}
     }) {
@@ -67,24 +72,36 @@ public:
             }
         }
 
-        // check script specified
-        if (0 == help && (1 != args.size() || args.at(0).empty())) {
-            parse_error.append("invalid arguments, startup script not specified");
-            return;
+        if (0 == help) {
+            // check script specified
+            if (0 == exec_one_liner && (1 != args.size() || args.at(0).empty())) {
+                parse_error.append("invalid arguments, startup script not specified");
+                return;
+            }
+
+            // set options and fix slashes
+            if (0 == exec_one_liner) {
+                indexjs = args.at(0);
+                std::replace(indexjs.begin(), indexjs.end(), '\\', '/');
+            } else if (2 != args.size()) {
+                parse_error.append("invalid one-liner arguments, expected: [<dep1:dep2:...> \"<code>\"]");
+                return;
+            } else {
+                exec_deps = args.at(0);
+                exec_code = args.at(1);
+            }
+
+            modules_dir_or_zip = nullptr != modules_dir_or_zip_ptr ? std::string(modules_dir_or_zip_ptr) : "";
+            std::replace(modules_dir_or_zip.begin(), modules_dir_or_zip.end(), '\\', '/');
+            startup_module_name = nullptr != startup_module_name_ptr ? std::string(startup_module_name_ptr) : "";
         }
-        
-        // set options and fix slashes
-        indexjs = 0 == help ? args.at(0) : "";
-        std::replace(indexjs.begin(), indexjs.end(), '\\', '/');
-        modules_dir_or_zip = nullptr != modules_dir_or_zip_ptr ? std::string(modules_dir_or_zip_ptr) : "";
-        std::replace(modules_dir_or_zip.begin(), modules_dir_or_zip.end(), '\\', '/');
-        startup_module_name = nullptr != startup_module_name_ptr ? std::string(startup_module_name_ptr) : "";
     }
     
     const std::string& usage() {
         static std::string msg = "OPTIONS: wilton path/to/script.js"
                 " [-m|--js-modules-dir-or-zip=STRING]"
                 " [-s|--startup-module-name=STRING]"
+                " [-e|--exec-one-liner <dep1:dep2:...> \"<code>\"]"
                 " [-- <app arguments>]";
         return msg;
     }
