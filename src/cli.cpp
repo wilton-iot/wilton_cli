@@ -105,8 +105,9 @@ std::vector<sl::json::field> collect_env_vars(char** envp) {
 std::string write_temp_one_liner(const std::string& exedir, const std::string& deps, const std::string& code) {
     // prepare tmp file path
     auto rsg = sl::utils::random_string_generator();
-    auto name = exedir + "../work/" + rsg.generate(8) + ".js";
-    auto path = sl::tinydir::path(name);
+    auto path_str = exedir + "../work/" + rsg.generate(8) + ".js";
+    auto path = sl::tinydir::path(path_str);
+    auto tmpl_path = sl::tinydir::path(exedir + "../conf/one-liner-template.js");
     
     // prepare deps
     auto deps_line = std::string();
@@ -131,18 +132,10 @@ std::string write_temp_one_liner(const std::string& exedir, const std::string& d
             }
         }
     }
-    std::string tmpl = R"(
-define([{{deps_line}}], function({{args_line}}) {
-    "use strict";
-    return {
-        main: function() {
-            var RESULT = {{code}};
-            print(RESULT);
-        }
-    };
-});
-)";
-    auto src = sl::io::make_replacer_source(sl::io::string_source(tmpl), {
+
+    // load and format template
+    auto tmpl_src = tmpl_path.open_read();
+    auto src = sl::io::make_replacer_source(tmpl_src, {
         {"deps_line", deps_line},
         {"args_line", args_line},
         {"code", code}
@@ -151,7 +144,7 @@ define([{{deps_line}}], function({{args_line}}) {
     });
     auto sink = path.open_write();
     sl::io::copy_all(src, sink);
-    return name;
+    return path_str;
 }
 
 } // namespace
