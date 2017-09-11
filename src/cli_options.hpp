@@ -6,7 +6,7 @@
  */
 
 #ifndef WILTON_CLI_OPTIONS_HPP
-#define	WILTON_CLI_OPTIONS_HPP
+#define WILTON_CLI_OPTIONS_HPP
 
 #include <algorithm>
 #include <string>
@@ -119,5 +119,5 @@ public:
 } // namespace
 }
 
-#endif	/* WILTON_CLI_OPTIONS_HPP */
+#endif /* WILTON_CLI_OPTIONS_HPP */
 
