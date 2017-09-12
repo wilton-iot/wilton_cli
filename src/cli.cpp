@@ -17,7 +17,7 @@
 #include "staticlib/tinydir.hpp"
 
 #include "wilton/wiltoncall.h"
-#include "wilton/support/wilton_support_exception.hpp"
+#include "wilton/support/exception.hpp"
 
 #include "cli_options.hpp"
 
@@ -86,7 +86,7 @@ void init_signals() {
     if (nullptr != err_init) {
         auto msg = TRACEMSG(err_init);
         wilton_free(err_init);
-        throw wilton::support::wilton_support_exception(msg);
+        throw wilton::support::exception(msg);
     }
 }
 
