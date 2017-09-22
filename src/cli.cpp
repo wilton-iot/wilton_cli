@@ -82,7 +82,7 @@ std::string find_app_dir(const std::string& idxfile_or_dir, const std::string& s
 }
 
 void init_signals() {
-    auto err_init = wilton_thread_initialize_signals();
+    auto err_init = wilton_signal_initialize();
     if (nullptr != err_init) {
         auto msg = TRACEMSG(err_init);
         wilton_free(err_init);
@@ -258,7 +258,7 @@ int main(int argc, char** argv, char** envp) {
 
         // init signals/ctrl+c to allow their use from js
         init_signals();
-        
+
         // call index.js
         char* out = nullptr;
         int out_len = 0;

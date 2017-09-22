@@ -31,7 +31,7 @@ add_executable ( ${PROJECT_NAME}
         
 target_include_directories ( ${PROJECT_NAME} BEFORE PRIVATE
         ${CMAKE_CURRENT_LIST_DIR}/include
-        ${CMAKE_CURRENT_LIST_DIR}/../../core/include
+        ${WILTON_DIR}/core/include
         ${${PROJECT_NAME}_DEPS_PC_INCLUDE_DIRS} )
         
 target_link_libraries ( ${PROJECT_NAME}
