@@ -92,7 +92,7 @@ void init_signals() {
 
 std::vector<sl::json::field> collect_env_vars(char** envp) {
     auto res = std::vector<sl::json::field>();
-    for (char** el = envp; *el != '\0'; el++) {
+    for (char** el = envp; *el != nullptr; el++) {
         auto var = std::string(*el);
         auto parts = sl::utils::split(var, '=');
         if (2 == parts.size()) {
