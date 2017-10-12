@@ -68,7 +68,7 @@ std::string find_app_dir(const std::string& idxfile_or_dir, const std::string& s
     }
     
     // starting module
-    size_t depth = 0;
+    size_t depth = 1;
     for (size_t i = 0; i < startmod.length(); i++) {
         if ('/' == startmod.at(i)) {
             depth += 1;
