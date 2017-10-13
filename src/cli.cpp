@@ -78,7 +78,9 @@ std::string find_app_dir(const std::string& idxfile_or_dir, const std::string& s
     for (size_t i = 0; i < depth; i++) {
         res.append("../");
     }
-    return res;
+    auto abs = sl::tinydir::full_path(res);
+    abs.push_back('/');
+    return abs;
 }
 
 void init_signals() {
