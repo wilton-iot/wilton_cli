@@ -17,6 +17,8 @@
 #include "staticlib/tinydir.hpp"
 
 #include "wilton/wiltoncall.h"
+#include "wilton/wilton_signal.h"
+
 #include "wilton/support/exception.hpp"
 
 #include "cli_options.hpp"
@@ -84,6 +86,13 @@ std::string find_app_dir(const std::string& idxfile_or_dir, const std::string& s
 }
 
 void init_signals() {
+    static std::string name = "wilton_signal";
+    auto err_dyload = wilton_dyload(name.c_str(), static_cast<int>(name.length()), nullptr, 0);
+    if (nullptr != err_dyload) {
+        auto msg = TRACEMSG(err_dyload);
+        wilton_free(err_dyload);
+        throw wilton::support::exception(msg);
+    }
     auto err_init = wilton_signal_initialize();
     if (nullptr != err_init) {
         auto msg = TRACEMSG(err_init);
