@@ -85,14 +85,17 @@ std::string find_app_dir(const std::string& idxfile_or_dir, const std::string& s
     return abs;
 }
 
-void init_signals() {
-    static std::string name = "wilton_signal";
+void dyload_module(const std::string& name) {
     auto err_dyload = wilton_dyload(name.c_str(), static_cast<int>(name.length()), nullptr, 0);
     if (nullptr != err_dyload) {
         auto msg = TRACEMSG(err_dyload);
         wilton_free(err_dyload);
         throw wilton::support::exception(msg);
     }
+}
+
+void init_signals() {
+    dyload_module("wilton_signal");
     auto err_init = wilton_signal_initialize();
     if (nullptr != err_init) {
         auto msg = TRACEMSG(err_init);
@@ -256,14 +259,8 @@ int main(int argc, char** argv, char** envp) {
         }
 
         // load script engine
-        auto enginelib = "wilton_" + script_engine;
-        auto err_dyload = wilton_dyload(enginelib.c_str(), static_cast<int>(enginelib.length()),
-                nullptr, 0);
-        if (nullptr != err_dyload) {
-            std::cerr << "ERROR: " << err_dyload << std::endl;
-            wilton_free(err_dyload);
-            return 1;
-        }
+        dyload_module("wilton_logging");
+        dyload_module("wilton_" + script_engine);
 
         // index.js input
         auto input = sl::json::dumps({
