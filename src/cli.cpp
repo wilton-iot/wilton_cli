@@ -222,8 +222,9 @@ int main(int argc, char** argv, char** envp) {
         auto env_vars = collect_env_vars(envp);
         
         // wilton init
+        auto script_engine = std::string("duktape");
         auto config = sl::json::dumps({
-            {"defaultScriptEngine", "duktape"},
+            {"defaultScriptEngine", script_engine},
             {"applicationDirectory", appdir},
             {"environmentVariables", std::move(env_vars)},
             {"requireJs", {
@@ -242,6 +243,16 @@ int main(int argc, char** argv, char** envp) {
         if (nullptr != err_init) {
             std::cerr << "ERROR: " << err_init << std::endl;
             wilton_free(err_init);
+            return 1;
+        }
+
+        // load script engine
+        auto enginelib = "wilton_" + script_engine;
+        auto err_dyload = wilton_dyload(enginelib.c_str(), static_cast<int>(enginelib.length()),
+                nullptr, 0);
+        if (nullptr != err_dyload) {
+            std::cerr << "ERROR: " << err_dyload << std::endl;
+            wilton_free(err_dyload);
             return 1;
         }
 
@@ -264,7 +275,8 @@ int main(int argc, char** argv, char** envp) {
         // call index.js
         char* out = nullptr;
         int out_len = 0;
-        char* err_run = wiltoncall_runscript_duktape(input.c_str(), static_cast<int> (input.length()), &out, &out_len);
+        char* err_run = wiltoncall_runscript(script_engine.c_str(), static_cast<int>(script_engine.length()),
+                input.c_str(), static_cast<int> (input.length()), &out, &out_len);
         if (nullptr != err_run) {
             std::cerr << "ERROR: " << err_run << std::endl;
             wilton_free(err_run);
