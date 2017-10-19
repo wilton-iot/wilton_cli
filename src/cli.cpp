@@ -7,6 +7,7 @@
 
 #include <iostream>
 #include <string>
+#include <tuple>
 #include <vector>
 
 #include <popt.h>
@@ -41,26 +42,25 @@ std::string find_exedir() {
     return exedir;
 }
 
-std::string find_startup_module(const std::string& opts_startup_module_name, const std::string& idxfile_or_dir) {
+std::tuple<std::string, std::string, std::string> find_startup_module(
+        const std::string& opts_startup_module_name, const std::string& startjs) {
+    auto startjs_full = sl::tinydir::full_path(startjs);
+    auto dir = sl::utils::strip_filename(startjs_full);
+    auto mod = std::string();
     if (!opts_startup_module_name.empty()) {
-        return opts_startup_module_name;
+        mod = opts_startup_module_name;
+    } else {
+        mod = sl::utils::strip_parent_dir(dir);
+        while(sl::utils::ends_with(mod, "/")) {
+            mod.pop_back();
+        }
     }
-    auto sm = sl::utils::strip_parent_dir(idxfile_or_dir);
-    if (sl::utils::ends_with(sm, ".js")) {
-        sm.resize(sm.length() - 3);
+    auto script = sl::utils::strip_parent_dir(startjs_full);
+    if (sl::utils::ends_with(script, ".js")) {
+        script = script.substr(0, script.length() - 3);
     }
-    if (sl::utils::ends_with(sm, "/")) {
-        sm.resize(sm.length() - 1);
-    }
-    return sm;
-}
-
-std::string find_statup_module_path(const std::string& idxfile_or_dir) {
-    auto smp = idxfile_or_dir;
-    if (sl::utils::ends_with(smp, ".js")) {
-        smp.resize(smp.length() - 3);
-    }
-    return smp;
+    auto script_id = mod + "/" +script;
+    return std::make_tuple(mod, dir, script_id);
 }
 
 std::string find_app_dir(const std::string& idxfile_or_dir, const std::string& startmod) {
@@ -105,15 +105,18 @@ void init_signals() {
 }
 
 std::vector<sl::json::field> collect_env_vars(char** envp) {
-    auto res = std::vector<sl::json::field>();
+    auto vec = std::vector<sl::json::field>();
     for (char** el = envp; *el != nullptr; el++) {
         auto var = std::string(*el);
         auto parts = sl::utils::split(var, '=');
         if (2 == parts.size()) {
-            res.emplace_back(parts.at(0), parts.at(1));
+            vec.emplace_back(parts.at(0), parts.at(1));
         }
     }
-    return res;
+    std::sort(vec.begin(), vec.end(), [](const sl::json::field& a, const sl::json::field& b) {
+        return a.name() < b.name();
+    });
+    return vec;
 }
 
 std::string write_temp_one_liner(const std::string& exedir, const std::string& deps, const std::string& code) {
@@ -195,21 +198,22 @@ int main(int argc, char** argv, char** envp) {
         auto exedir = find_exedir();
         
         // check startup script
-        auto idxfile_or_dir = 0 == opts.exec_one_liner ? opts.indexjs : 
+        auto startjs = 0 == opts.exec_one_liner ? opts.startup_script : 
                 write_temp_one_liner(exedir, opts.exec_deps, opts.exec_code);
-        auto tmpcleaner = sl::support::defer([&opts, &idxfile_or_dir]() STATICLIB_NOEXCEPT {
+        auto tmpcleaner = sl::support::defer([&opts, &startjs]() STATICLIB_NOEXCEPT {
             if (0 != opts.exec_one_liner) {
-                std::remove(idxfile_or_dir.c_str());
+                std::remove(startjs.c_str());
             }
         });
-        auto indexpath = sl::tinydir::path(idxfile_or_dir);
-        if (!indexpath.exists()) {
-            std::cerr << "ERROR: specified script file not found: [" + idxfile_or_dir + "]" << std::endl;
+        auto startjs_path = sl::tinydir::path(startjs);
+        if (!startjs_path.exists()) {
+            std::cerr << "ERROR: specified script file not found: [" + startjs + "]" << std::endl;
             return 1;
         }
-        if (indexpath.is_directory() && '/' != idxfile_or_dir.back()) {
-            idxfile_or_dir.push_back('/');
-        }                
+        if(!startjs_path.is_regular_file()) {
+            std::cerr << "ERROR: invalid script file specified: [" + startjs + "]" << std::endl;
+            return 1;
+        }
         
         // check modules dir
         auto moddir = !opts.modules_dir_or_zip.empty() ? opts.modules_dir_or_zip : exedir + "../js.zip";
@@ -226,31 +230,61 @@ int main(int argc, char** argv, char** envp) {
         }
         
         // get index module
-        auto startmod = find_startup_module(opts.startup_module_name, idxfile_or_dir);
-        auto startmodpath = find_statup_module_path(idxfile_or_dir);
-        auto appdir = find_app_dir(idxfile_or_dir, startmod);
-                
+        auto startmod = std::string();
+        auto startmod_dir = std::string();
+        auto startmod_id = std::string();
+        std::tie(startmod, startmod_dir, startmod_id) = find_startup_module(opts.startup_module_name, startjs);
+        if (startmod.empty()) {
+            std::cerr << "ERROR: cannot determine startup module name, use '-s' to specify it" << std::endl;
+            return 1;
+        }
+
+        // get appdir
+        auto appdir = !opts.application_dir.empty() ? opts.application_dir : exedir + "../";
+        if ('/' != appdir.back()) {
+            appdir.push_back('/');
+        }
+
+        // get script engine name
+        auto script_engine = !opts.script_engine_name.empty() ? opts.script_engine_name : std::string("duktape");
+
         // env vars
         auto env_vars = collect_env_vars(envp);
         
+        // startup call
+        auto input = sl::json::dumps({
+            {"module", startmod_id},
+            {"func", "main"},
+            {"args", [&apprags] {
+                    auto res = std::vector<sl::json::value>();
+                    for (auto& st : apprags) {
+                        res.emplace_back(st);
+                    }
+                    return res;
+                }()}
+        });
         // wilton init
-        auto script_engine = std::string("duktape");
         auto config = sl::json::dumps({
             {"defaultScriptEngine", script_engine},
             {"applicationDirectory", appdir},
-            {"environmentVariables", std::move(env_vars)},
             {"requireJs", {
                     {"waitSeconds", 0},
                     {"enforceDefine", true},
                     {"nodeIdCompat", true},
                     {"baseUrl", modurl},
                     {"paths", {
-                        { startmod, "file://" + startmodpath }
+                        { startmod, "file://" + startmod_dir }
                     }}
                 }
-            }
+            },
+            {"environmentVariables", std::move(env_vars)}
         });
+        if (0 != opts.print_config) {
+            std::cout << input << std::endl;
+            std::cout << config << std::endl;
+        }
 
+        // init wilton
         auto err_init = wiltoncall_init(config.c_str(), static_cast<int> (config.length()));
         if (nullptr != err_init) {
             std::cerr << "ERROR: " << err_init << std::endl;
@@ -261,19 +295,6 @@ int main(int argc, char** argv, char** envp) {
         // load script engine
         dyload_module("wilton_logging");
         dyload_module("wilton_" + script_engine);
-
-        // index.js input
-        auto input = sl::json::dumps({
-            {"module", startmod},
-            {"func", "main"},
-            {"args", [&apprags] {
-                    auto res = std::vector<sl::json::value>();
-                    for (auto& st : apprags) {
-                        res.emplace_back(st);
-                    }
-                    return res;
-                }()}
-        });
 
         // init signals/ctrl+c to allow their use from js
         init_signals();

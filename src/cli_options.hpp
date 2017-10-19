@@ -20,7 +20,9 @@ namespace launcher {
 class cli_options {
     std::vector<struct poptOption> table;
     char* modules_dir_or_zip_ptr = nullptr;
+    char* application_dir_ptr = nullptr;
     char* startup_module_name_ptr = nullptr;
+    char* script_engine_name_ptr = nullptr;
     
 public:    
     poptContext ctx = nullptr;
@@ -29,19 +31,25 @@ public:
 
     // public options list
     std::string modules_dir_or_zip;
+    std::string application_dir;
     std::string startup_module_name;
+    std::string script_engine_name;
     int exec_one_liner = 0;
+    int print_config = 0;
     int help = 0;
     
-    std::string indexjs;
+    std::string startup_script;
     std::string exec_deps;
     std::string exec_code;
 
     cli_options(int argc, char** argv) :
     table({
-        { "js-modules-dir-or-zip", 'm', POPT_ARG_STRING, std::addressof(modules_dir_or_zip_ptr), static_cast<int> ('m'), "Path to JavaScript modules directory or zip bundle", nullptr},
-        { "startup-module-name", 's', POPT_ARG_STRING, std::addressof(startup_module_name_ptr), static_cast<int> ('s'), "Name of the index module", nullptr},
+        { "js-modules-dir-or-zip", 'm', POPT_ARG_STRING, std::addressof(modules_dir_or_zip_ptr), static_cast<int> ('m'), "Path to JavaScript modules directory or ZIP bundle", nullptr},
+        { "startup-module-name", 's', POPT_ARG_STRING, std::addressof(startup_module_name_ptr), static_cast<int> ('s'), "Name of the startup module", nullptr},
+        { "application-dir", 'a', POPT_ARG_STRING, std::addressof(application_dir_ptr), static_cast<int> ('a'), "Path to application directory", nullptr},
+        { "javascript-engine", 'j', POPT_ARG_STRING, std::addressof(script_engine_name_ptr), static_cast<int> ('j'), "Name of the JavaScript engine to use", nullptr},
         { "exec-one-liner", 'e', POPT_ARG_NONE, std::addressof(exec_one_liner), static_cast<int> ('e'), "Execute one-liner script", nullptr},
+        { "print-config", 'p', POPT_ARG_NONE, std::addressof(print_config), static_cast<int> ('p'), "Print config on startup", nullptr},
         { "help", 'h', POPT_ARG_NONE, std::addressof(help), static_cast<int> ('h'), "Show this help message", nullptr},
         { nullptr, 0, 0, nullptr, 0, nullptr, nullptr}
     }) {
@@ -81,8 +89,8 @@ public:
 
             // set options and fix slashes
             if (0 == exec_one_liner) {
-                indexjs = args.at(0);
-                std::replace(indexjs.begin(), indexjs.end(), '\\', '/');
+                startup_script = args.at(0);
+                std::replace(startup_script.begin(), startup_script.end(), '\\', '/');
             } else if (2 != args.size()) {
                 parse_error.append("invalid one-liner arguments, expected: [<dep1:dep2:...> \"<code>\"]");
                 return;
@@ -94,14 +102,16 @@ public:
             modules_dir_or_zip = nullptr != modules_dir_or_zip_ptr ? std::string(modules_dir_or_zip_ptr) : "";
             std::replace(modules_dir_or_zip.begin(), modules_dir_or_zip.end(), '\\', '/');
             startup_module_name = nullptr != startup_module_name_ptr ? std::string(startup_module_name_ptr) : "";
+            std::replace(startup_module_name.begin(), startup_module_name.end(), '\\', '/');
+            application_dir = nullptr != application_dir_ptr ? std::string(application_dir_ptr) : "";
+            std::replace(application_dir.begin(), application_dir.end(), '\\', '/');
+            script_engine_name = nullptr != script_engine_name_ptr ? std::string(script_engine_name_ptr) : "";
         }
     }
     
     const std::string& usage() {
-        static std::string msg = "OPTIONS: wilton path/to/script.js"
-                " [-m|--js-modules-dir-or-zip=STRING]"
-                " [-s|--startup-module-name=STRING]"
-                " [-e|--exec-one-liner <dep1:dep2:...> \"<code>\"]"
+        static std::string msg = "USAGE: wilton path/to/script.js"
+                " [OPTION...]"
                 " [-- <app arguments>]";
         return msg;
     }
