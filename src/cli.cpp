@@ -63,28 +63,6 @@ std::tuple<std::string, std::string, std::string> find_startup_module(
     return std::make_tuple(mod, dir, script_id);
 }
 
-std::string find_app_dir(const std::string& idxfile_or_dir, const std::string& startmod) {
-    // starting a standalone script
-    if ('/' != idxfile_or_dir.back()) {
-        return sl::utils::strip_filename(idxfile_or_dir);
-    }
-    
-    // starting module
-    size_t depth = 1;
-    for (size_t i = 0; i < startmod.length(); i++) {
-        if ('/' == startmod.at(i)) {
-            depth += 1;
-        }
-    }
-    auto res = std::string(idxfile_or_dir.data(), idxfile_or_dir.length());
-    for (size_t i = 0; i < depth; i++) {
-        res.append("../");
-    }
-    auto abs = sl::tinydir::full_path(res);
-    abs.push_back('/');
-    return abs;
-}
-
 void dyload_module(const std::string& name) {
     auto err_dyload = wilton_dyload(name.c_str(), static_cast<int>(name.length()), nullptr, 0);
     if (nullptr != err_dyload) {
