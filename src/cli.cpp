@@ -272,6 +272,7 @@ int main(int argc, char** argv, char** envp) {
 
         // load script engine
         dyload_module("wilton_logging");
+        dyload_module("wilton_loader");
         dyload_module("wilton_" + script_engine);
 
         // init signals/ctrl+c to allow their use from js
