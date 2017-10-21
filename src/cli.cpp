@@ -230,17 +230,24 @@ int main(int argc, char** argv, char** envp) {
         auto env_vars = collect_env_vars(envp);
         
         // startup call
-        auto input = sl::json::dumps({
-            {"module", startmod_id},
-            {"func", "main"},
-            {"args", [&apprags] {
-                    auto res = std::vector<sl::json::value>();
-                    for (auto& st : apprags) {
-                        res.emplace_back(st);
-                    }
-                    return res;
-                }()}
-        });
+        auto input = std::string();
+        if (0 == opts.load_only) {
+            input = sl::json::dumps({
+                {"module", startmod_id},
+                {"func", "main"},
+                {"args", [&apprags] {
+                        auto res = std::vector<sl::json::value>();
+                        for (auto& st : apprags) {
+                            res.emplace_back(st);
+                        }
+                        return res;
+                    }()}
+            });
+        } else  {
+            input = sl::json::dumps({
+                {"module", startmod_id}
+            });
+        }
         // wilton init
         auto config = sl::json::dumps({
             {"defaultScriptEngine", script_engine},
