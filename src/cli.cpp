@@ -25,10 +25,11 @@
 #include "cli_options.hpp"
 
 #define WILTON_QUOTE(value) #value
+#define WILTON_STR(value) WILTON_QUOTE(value)
 #ifndef WILTON_DEFAULT_SCRIPT_ENGINE
 #define WILTON_DEFAULT_SCRIPT_ENGINE duktape
 #endif // WILTON_DEFAULT_SCRIPT_ENGINE
-#define WILTON_DEFAULT_SCRIPT_ENGINE_STR WILTON_QUOTE(WILTON_DEFAULT_SCRIPT_ENGINE)
+#define WILTON_DEFAULT_SCRIPT_ENGINE_STR WILTON_STR(WILTON_DEFAULT_SCRIPT_ENGINE)
 
 namespace { // anonymous
 
@@ -207,7 +208,7 @@ int main(int argc, char** argv, char** envp) {
             return 1;
         }
         auto modurl = modpath.is_directory() ?
-                std::string("file://") + moddir :
+                std::string("file://") + sl::tinydir::full_path(moddir) :
                 std::string("zip://") + moddir;
         if (modpath.is_directory() && '/' != modurl.at(modurl.length() - 1)) {
             modurl.push_back('/');
