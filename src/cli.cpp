@@ -24,6 +24,12 @@
 
 #include "cli_options.hpp"
 
+#define WILTON_QUOTE(value) #value
+#ifndef WILTON_DEFAULT_SCRIPT_ENGINE
+#define WILTON_DEFAULT_SCRIPT_ENGINE duktape
+#endif // WILTON_DEFAULT_SCRIPT_ENGINE
+#define WILTON_DEFAULT_SCRIPT_ENGINE_STR WILTON_QUOTE(WILTON_DEFAULT_SCRIPT_ENGINE)
+
 namespace { // anonymous
 
 int find_launcher_args_end(int argc, char** argv) {
@@ -224,7 +230,7 @@ int main(int argc, char** argv, char** envp) {
         }
 
         // get script engine name
-        auto script_engine = !opts.script_engine_name.empty() ? opts.script_engine_name : std::string("duktape");
+        auto script_engine = !opts.script_engine_name.empty() ? opts.script_engine_name : std::string(WILTON_DEFAULT_SCRIPT_ENGINE_STR);
 
         // env vars
         auto env_vars = collect_env_vars(envp);
