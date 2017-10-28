@@ -21,6 +21,7 @@
 #include "wilton/wilton_signal.h"
 
 #include "wilton/support/exception.hpp"
+#include "wilton/support/misc.hpp"
 
 #include "cli_options.hpp"
 
@@ -68,6 +69,29 @@ std::tuple<std::string, std::string, std::string> find_startup_module(
     }
     auto script_id = mod + "/" +script;
     return std::make_tuple(mod, dir, script_id);
+}
+
+std::vector<sl::json::field> prepare_paths(
+        const std::string& binary_modules_paths, const std::string& startmod, const std::string& startmod_dir) {
+    std::vector<sl::json::field> res;
+    res.emplace_back(startmod, wilton::support::file_proto_prefix + startmod_dir);
+    auto binmods = sl::utils::split(binary_modules_paths, ':');
+    for(auto& mod : binmods) {
+        if (!sl::utils::ends_with(mod, wilton::support::binmod_postfix)) {
+            throw new wilton::support::exception(TRACEMSG("Invalid binary module path specified," +
+                    " must be 'path/to/mymod.wlib', path: [" + mod + "]"));
+        }
+        auto modpath = sl::tinydir::path(mod);
+        if (!(modpath.exists() && modpath.is_regular_file())) {
+            throw new wilton::support::exception(TRACEMSG("Binary module file not found," +
+                    " path: [" + mod + "]"));
+        }
+        auto modfile = sl::utils::strip_parent_dir(mod);
+        auto modname = modfile.substr(0, modfile.length() - wilton::support::binmod_postfix.length());
+        auto modfullpath = sl::tinydir::full_path(mod);
+        res.emplace_back(modname, wilton::support::zip_proto_prefix + modfullpath);
+    }
+    return res;
 }
 
 void dyload_module(const std::string& name) {
@@ -201,10 +225,10 @@ int main(int argc, char** argv, char** envp) {
         }
         
         // check modules dir
-        auto moddir = !opts.modules_dir_or_zip.empty() ? opts.modules_dir_or_zip : exedir + "../js.zip";
+        auto moddir = !opts.modules_dir_or_zip.empty() ? opts.modules_dir_or_zip : exedir + "../std.wlib";
         auto modpath = sl::tinydir::path(moddir);
         if (!modpath.exists()) {
-            std::cerr << "ERROR: specified modules directory (or zip bundle) not found: [" + moddir + "]" << std::endl;
+            std::cerr << "ERROR: specified modules directory (or wlib bundle) not found: [" + moddir + "]" << std::endl;
             return 1;
         }
         auto modurl = modpath.is_directory() ?
@@ -214,7 +238,7 @@ int main(int argc, char** argv, char** envp) {
             modurl.push_back('/');
         }
         
-        // get index module
+        // get startup module
         auto startmod = std::string();
         auto startmod_dir = std::string();
         auto startmod_id = std::string();
@@ -223,6 +247,9 @@ int main(int argc, char** argv, char** envp) {
             std::cerr << "ERROR: cannot determine startup module name, use '-s' to specify it" << std::endl;
             return 1;
         }
+
+        // prepare paths
+        auto paths = prepare_paths(opts.binary_modules_paths, startmod, startmod_dir);
 
         // get appdir
         auto appdir = !opts.application_dir.empty() ? opts.application_dir : exedir + "../";
@@ -264,9 +291,7 @@ int main(int argc, char** argv, char** envp) {
                     {"enforceDefine", true},
                     {"nodeIdCompat", true},
                     {"baseUrl", modurl},
-                    {"paths", {
-                        { startmod, "file://" + startmod_dir }
-                    }}
+                    {"paths", std::move(paths)}
                 }
             },
             {"environmentVariables", std::move(env_vars)}
@@ -292,7 +317,7 @@ int main(int argc, char** argv, char** envp) {
         // init signals/ctrl+c to allow their use from js
         init_signals();
 
-        // call index.js
+        // call script
         char* out = nullptr;
         int out_len = 0;
         char* err_run = wiltoncall_runscript(script_engine.c_str(), static_cast<int>(script_engine.length()),
