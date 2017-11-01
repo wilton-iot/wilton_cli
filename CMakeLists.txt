@@ -5,7 +5,7 @@ cmake_minimum_required ( VERSION 2.8.12 )
 project ( wilton_cli CXX )
 
 # dependencies
-if ( STATICLIB_TOOLCHAIN MATCHES "windows_[^_]+_[^_]+" )
+if ( STATICLIB_TOOLCHAIN MATCHES "windows_.+" )
     staticlib_add_subdirectory ( ${STATICLIB_DEPS}/external_popt )
 endif ( )
 
@@ -19,7 +19,7 @@ staticlib_pkg_check_modules ( ${PROJECT_NAME}_DEPS_PC REQUIRED ${PROJECT_NAME}_D
 
 # executable
 set ( ${PROJECT_NAME}_RESFILE )
-if ( STATICLIB_TOOLCHAIN MATCHES "windows_[^_]+_[^_]+" )
+if ( STATICLIB_TOOLCHAIN MATCHES "windows_.+" )
     configure_file ( ${CMAKE_CURRENT_LIST_DIR}/resources/${PROJECT_NAME}.rc
             ${CMAKE_CURRENT_BINARY_DIR}/${PROJECT_NAME}.rc )
     set ( ${PROJECT_NAME}_RESFILE ${CMAKE_CURRENT_BINARY_DIR}/${PROJECT_NAME}.rc )
@@ -40,12 +40,12 @@ target_link_libraries ( ${PROJECT_NAME} PRIVATE
         wilton_core
         ${${PROJECT_NAME}_DEPS_PC_LIBRARIES} )
 
-if ( STATICLIB_TOOLCHAIN MATCHES "linux_[^_]+_[^_]+" )
-    target_compile_definitions ( ${PROJECT_NAME} PRIVATE
-            -DWILTON_DEFAULT_SCRIPT_ENGINE=jsc )
-endif ( )
-
-if ( STATICLIB_TOOLCHAIN MATCHES "windows_[^_]+_[^_]+" )
+if ( STATICLIB_TOOLCHAIN MATCHES "windows_.+" )
     target_link_libraries ( ${PROJECT_NAME} PRIVATE wtsapi32 )
     set_property ( TARGET ${PROJECT_NAME} APPEND_STRING PROPERTY LINK_FLAGS "/manifest:no" )
+endif ( )
+
+if ( STATICLIB_TOOLCHAIN MATCHES "linux_.+" )
+    target_compile_definitions ( ${PROJECT_NAME} PRIVATE
+            -DWILTON_DEFAULT_SCRIPT_ENGINE=jsc )
 endif ( )
