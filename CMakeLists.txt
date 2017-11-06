@@ -45,7 +45,7 @@ if ( STATICLIB_TOOLCHAIN MATCHES "windows_.+" )
     set_property ( TARGET ${PROJECT_NAME} APPEND_STRING PROPERTY LINK_FLAGS "/manifest:no" )
 endif ( )
 
-if ( STATICLIB_TOOLCHAIN MATCHES "linux_.+" )
+if ( STATICLIB_TOOLCHAIN MATCHES "(linux|macosx)_.+" )
     target_compile_definitions ( ${PROJECT_NAME} PRIVATE
             -DWILTON_DEFAULT_SCRIPT_ENGINE=jsc )
 endif ( )
