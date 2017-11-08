@@ -5,7 +5,7 @@ cmake_minimum_required ( VERSION 2.8.12 )
 project ( wilton_cli CXX )
 
 # dependencies
-if ( STATICLIB_TOOLCHAIN MATCHES "windows_.+" )
+if ( STATICLIB_TOOLCHAIN MATCHES "(windows|macosx)_.+" )
     staticlib_add_subdirectory ( ${STATICLIB_DEPS}/external_popt )
 endif ( )
 
