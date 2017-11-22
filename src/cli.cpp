@@ -50,7 +50,18 @@ std::string find_exedir() {
     return exedir;
 }
 
-std::tuple<std::string, std::string, std::string> find_startup_module(
+std::string read_appname(const std::string& appdir) {
+    try {
+        auto cfile = sl::tinydir::path(appdir + "conf/config.json");
+        auto src = cfile.open_read();
+        auto json = sl::json::load(src);
+        return json["appname"].as_string_nonempty_or_throw();
+    } catch(const std::exception&) {
+        return std::string();
+    }
+}
+
+std::tuple<std::string, std::string, std::string> find_startup_module(const std::string& appdir,
         const std::string& opts_startup_module_name, const std::string& startjs) {
     auto startjs_full = sl::tinydir::full_path(startjs);
     auto dir = sl::utils::strip_filename(startjs_full);
@@ -58,9 +69,16 @@ std::tuple<std::string, std::string, std::string> find_startup_module(
     if (!opts_startup_module_name.empty()) {
         mod = opts_startup_module_name;
     } else {
-        mod = sl::utils::strip_parent_dir(dir);
-        while(sl::utils::ends_with(mod, "/")) {
-            mod.pop_back();
+        // try to get appname
+        if (dir == appdir) {
+            mod = read_appname(appdir);
+        }
+        if (mod.empty()) {
+            // fallback to dir name
+            mod = sl::utils::strip_parent_dir(dir);
+            while(sl::utils::ends_with(mod, "/")) {
+                mod.pop_back();
+            }
         }
     }
     auto script = sl::utils::strip_parent_dir(startjs_full);
@@ -237,12 +255,18 @@ int main(int argc, char** argv, char** envp) {
         if (modpath.is_directory() && '/' != modurl.at(modurl.length() - 1)) {
             modurl.push_back('/');
         }
+
+        // get appdir
+        auto appdir = !opts.application_dir.empty() ? opts.application_dir : sl::tinydir::full_path(exedir + "../");
+        if ('/' != appdir.back()) {
+            appdir.push_back('/');
+        }
         
         // get startup module
         auto startmod = std::string();
         auto startmod_dir = std::string();
         auto startmod_id = std::string();
-        std::tie(startmod, startmod_dir, startmod_id) = find_startup_module(opts.startup_module_name, startjs);
+        std::tie(startmod, startmod_dir, startmod_id) = find_startup_module(appdir, opts.startup_module_name, startjs);
         if (startmod.empty()) {
             std::cerr << "ERROR: cannot determine startup module name, use '-s' to specify it" << std::endl;
             return 1;
@@ -250,12 +274,6 @@ int main(int argc, char** argv, char** envp) {
 
         // prepare paths
         auto paths = prepare_paths(opts.binary_modules_paths, startmod, startmod_dir);
-
-        // get appdir
-        auto appdir = !opts.application_dir.empty() ? opts.application_dir : exedir + "../";
-        if ('/' != appdir.back()) {
-            appdir.push_back('/');
-        }
 
         // get script engine name
         auto script_engine = !opts.script_engine_name.empty() ? opts.script_engine_name : std::string(WILTON_DEFAULT_SCRIPT_ENGINE_STR);
