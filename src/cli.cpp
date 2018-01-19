@@ -16,6 +16,7 @@
 #include "staticlib/json.hpp"
 #include "staticlib/utils.hpp"
 #include "staticlib/tinydir.hpp"
+#include "staticlib/unzip.hpp"
 
 #include "wilton/wiltoncall.h"
 #include "wilton/wilton_signal.h"
@@ -128,6 +129,39 @@ void init_signals() {
         auto msg = TRACEMSG(err_init);
         wilton_free(err_init);
         throw wilton::support::exception(msg);
+    }
+}
+
+sl::json::value read_json_file(const std::string& url) {
+    auto path = url.substr(wilton::support::file_proto_prefix.length());
+    auto src = sl::tinydir::file_source(path);
+    return sl::json::load(src);
+}
+
+sl::json::value read_json_zip_entry(const std::string& zip_url, const std::string& entry) {
+    dyload_module("wilton_zip");
+    auto zip_path = zip_url.substr(wilton::support::zip_proto_prefix.length());
+    auto idx = sl::unzip::file_index(zip_path);
+    sl::unzip::file_entry en = idx.find_zip_entry(entry);
+    if (en.is_empty()) throw wilton::support::exception(TRACEMSG(
+            "Unable to load 'wilton-packages.json', ZIP entry: [" + entry + "]," +
+            " file: [" + zip_path + "]"));
+    auto stream = sl::unzip::open_zip_entry(idx, entry);
+    auto src = sl::io::streambuf_source(stream.get());
+    return sl::json::load(src);
+}
+
+sl::json::value load_packages_list(const std::string& modurl) {
+    // note: cannot use 'wilton_loader' here, as it is not initialized yet
+    auto packages_json_id = "wilton-requirejs/wilton-packages.json";
+    if (sl::utils::starts_with(modurl, wilton::support::zip_proto_prefix)) {
+        return read_json_zip_entry(modurl, packages_json_id);
+    } else if (sl::utils::starts_with(modurl, wilton::support::file_proto_prefix)) {
+        return read_json_file(modurl + packages_json_id);
+    } else {
+        throw new wilton::support::exception(TRACEMSG(
+                "Unable to load 'wilton-packages.json' - unknown protocol," +
+                " baseUrl: [" + modurl + "]"));
     }
 }
 
@@ -278,6 +312,8 @@ int main(int argc, char** argv, char** envp) {
         // get script engine name
         auto script_engine = !opts.script_engine_name.empty() ? opts.script_engine_name : std::string(WILTON_DEFAULT_SCRIPT_ENGINE_STR);
 
+        // packages
+        auto packages = load_packages_list(modurl);
         // env vars
         auto env_vars = collect_env_vars(envp);
         
@@ -309,7 +345,8 @@ int main(int argc, char** argv, char** envp) {
                     {"enforceDefine", true},
                     {"nodeIdCompat", true},
                     {"baseUrl", modurl},
-                    {"paths", std::move(paths)}
+                    {"paths", std::move(paths)},
+                    {"packages", std::move(packages)}
                 }
             },
             {"environmentVariables", std::move(env_vars)}

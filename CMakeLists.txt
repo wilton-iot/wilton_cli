@@ -13,6 +13,7 @@ set ( ${PROJECT_NAME}_DEPS
         staticlib_json
         staticlib_utils
         staticlib_tinydir
+        staticlib_unzip
         popt )
         
 staticlib_pkg_check_modules ( ${PROJECT_NAME}_DEPS_PC REQUIRED ${PROJECT_NAME}_DEPS )
@@ -38,6 +39,8 @@ target_include_directories ( ${PROJECT_NAME} BEFORE PRIVATE
 target_link_libraries ( ${PROJECT_NAME} PRIVATE
         wilton_signal
         wilton_core
+        wilton_logging
+        wilton_zip
         ${${PROJECT_NAME}_DEPS_PC_LIBRARIES} )
 
 if ( STATICLIB_TOOLCHAIN MATCHES "windows_.+" )
