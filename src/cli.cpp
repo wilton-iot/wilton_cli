@@ -278,6 +278,9 @@ int main(int argc, char** argv, char** envp) {
         // get script engine name
         auto script_engine = !opts.script_engine_name.empty() ? opts.script_engine_name : std::string(WILTON_DEFAULT_SCRIPT_ENGINE_STR);
 
+        // get debug connection port
+        auto debug_port = !opts.debug_port.empty() ? opts.debug_port : std::string("");
+
         // env vars
         auto env_vars = collect_env_vars(envp);
         
@@ -312,7 +315,8 @@ int main(int argc, char** argv, char** envp) {
                     {"paths", std::move(paths)}
                 }
             },
-            {"environmentVariables", std::move(env_vars)}
+            {"environmentVariables", std::move(env_vars)},
+            {"debugConnectionPort", debug_port}
         });
         if (0 != opts.print_config) {
             std::cout << input << std::endl;
