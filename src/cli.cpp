@@ -314,6 +314,10 @@ int main(int argc, char** argv, char** envp) {
 
         // packages
         auto packages = load_packages_list(modurl);
+
+        // get debug connection port
+        auto debug_port = !opts.debug_port.empty() ? opts.debug_port : std::string("");
+
         // env vars
         auto env_vars = collect_env_vars(envp);
         
@@ -349,7 +353,8 @@ int main(int argc, char** argv, char** envp) {
                     {"packages", std::move(packages)}
                 }
             },
-            {"environmentVariables", std::move(env_vars)}
+            {"environmentVariables", std::move(env_vars)},
+            {"debugConnectionPort", debug_port}
         });
         if (0 != opts.print_config) {
             std::cout << input << std::endl;
