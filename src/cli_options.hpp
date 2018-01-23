@@ -24,6 +24,7 @@ class cli_options {
     char* startup_module_name_ptr = nullptr;
     char* binary_modules_paths_ptr = nullptr;
     char* script_engine_name_ptr = nullptr;
+    char* debug_port_prt = nullptr;
     
 public:    
     poptContext ctx = nullptr;
@@ -36,6 +37,7 @@ public:
     std::string startup_module_name;
     std::string binary_modules_paths;
     std::string script_engine_name;
+    std::string debug_port;
     int exec_one_liner = 0;
     int print_config = 0;
     int load_only = 0;
@@ -52,6 +54,7 @@ public:
         { "binary-modules", 'b', POPT_ARG_STRING, std::addressof(binary_modules_paths_ptr), static_cast<int> ('b'), "Binary modules paths list with ':' separator", nullptr},
         { "application-dir", 'a', POPT_ARG_STRING, std::addressof(application_dir_ptr), static_cast<int> ('a'), "Path to application directory", nullptr},
         { "javascript-engine", 'j', POPT_ARG_STRING, std::addressof(script_engine_name_ptr), static_cast<int> ('j'), "Name of the JavaScript engine to use", nullptr},
+        { "debug-enable-on-port", 'd', POPT_ARG_STRING, std::addressof(debug_port_prt), static_cast<int> ('d'), "Port to use for debugger", nullptr},
         { "load-only", 'l', POPT_ARG_NONE, std::addressof(load_only), static_cast<int> ('l'), "Load specified script without calling 'main' function", nullptr},
         { "exec-one-liner", 'e', POPT_ARG_NONE, std::addressof(exec_one_liner), static_cast<int> ('e'), "Execute one-liner script", nullptr},
         { "print-config", 'p', POPT_ARG_NONE, std::addressof(print_config), static_cast<int> ('p'), "Print config on startup", nullptr},
@@ -113,6 +116,7 @@ public:
             application_dir = nullptr != application_dir_ptr ? std::string(application_dir_ptr) : "";
             std::replace(application_dir.begin(), application_dir.end(), '\\', '/');
             script_engine_name = nullptr != script_engine_name_ptr ? std::string(script_engine_name_ptr) : "";
+            debug_port = (nullptr != debug_port_prt) ? std::string(debug_port_prt) : "";
         }
     }
     
