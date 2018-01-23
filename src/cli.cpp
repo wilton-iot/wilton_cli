@@ -225,6 +225,22 @@ std::string write_temp_one_liner(const std::string& exedir, const std::string& d
     return path_str;
 }
 
+std::string choose_default_engine(const std::string& opts_script_engine_name, const std::string& debug_port) {
+    if (!debug_port.empty() && !opts_script_engine_name.empty() && "duktape" != opts_script_engine_name) {
+        std::cerr << "ERROR: only 'duktape' JS engine can be used for debugging" <<
+                " (selected by default, if '-d' is specified)," <<
+                " but another engine is requested: [" << opts_script_engine_name << "]" << std::endl;
+        return std::string();
+    }
+    if (!debug_port.empty()) {
+        return std::string("duktape");
+    }
+    if (!opts_script_engine_name.empty()) {
+        return opts_script_engine_name;
+    }
+    return std::string(WILTON_DEFAULT_SCRIPT_ENGINE_STR);
+}
+
 } // namespace
 
 // valgrind run:
@@ -309,14 +325,17 @@ int main(int argc, char** argv, char** envp) {
         // prepare paths
         auto paths = prepare_paths(opts.binary_modules_paths, startmod, startmod_dir);
 
-        // get script engine name
-        auto script_engine = !opts.script_engine_name.empty() ? opts.script_engine_name : std::string(WILTON_DEFAULT_SCRIPT_ENGINE_STR);
-
         // packages
         auto packages = load_packages_list(modurl);
 
-        // get debug connection port
+        // get debug connection port, may be switched to int and defaulted to -1 eventually
         auto debug_port = !opts.debug_port.empty() ? opts.debug_port : std::string("");
+
+        // get script engine name
+        auto script_engine = choose_default_engine(opts.script_engine_name, debug_port);
+        if (script_engine.empty()) {
+            return 1;
+        }
 
         // env vars
         auto env_vars = collect_env_vars(envp);
