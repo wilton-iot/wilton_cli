@@ -46,8 +46,11 @@ target_link_libraries ( ${PROJECT_NAME} PRIVATE
 if ( STATICLIB_TOOLCHAIN MATCHES "windows_.+" )
     target_link_libraries ( ${PROJECT_NAME} PRIVATE wtsapi32 )
     set_property ( TARGET ${PROJECT_NAME} APPEND_STRING PROPERTY LINK_FLAGS "/manifest:no" )
-    target_compile_definitions ( ${PROJECT_NAME} PRIVATE
-            -DWILTON_DEFAULT_SCRIPT_ENGINE=chakra )
+    if ( STATICLIB_TOOLCHAIN MATCHES "windows_amd64_.+" )
+        # no chakra on winxp
+        target_compile_definitions ( ${PROJECT_NAME} PRIVATE
+                -DWILTON_DEFAULT_SCRIPT_ENGINE=chakra )
+    endif ( )
 endif ( )
 
 if ( STATICLIB_TOOLCHAIN MATCHES "(linux|macosx)_.+" )
