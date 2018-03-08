@@ -56,6 +56,7 @@ target_link_libraries ( ${PROJECT_NAME} PRIVATE
         wilton_zip
         ${${PROJECT_NAME}_DEPS_PC_LIBRARIES} )
 
+# platform-specific link options
 if ( STATICLIB_TOOLCHAIN MATCHES "windows_.+" )
     target_link_libraries ( ${PROJECT_NAME} PRIVATE wtsapi32 )
     set_property ( TARGET ${PROJECT_NAME} APPEND_STRING PROPERTY LINK_FLAGS "/manifest:no" )
@@ -65,6 +66,9 @@ if ( STATICLIB_TOOLCHAIN MATCHES "windows_.+" )
                 -DWILTON_DEFAULT_SCRIPT_ENGINE=chakra )
     endif ( )
 endif ( )
+
+# debuginfo
+staticlib_extract_debuginfo_executable ( ${PROJECT_NAME} )
 
 if ( STATICLIB_TOOLCHAIN MATCHES "(linux|macosx)_.+" )
     target_compile_definitions ( ${PROJECT_NAME} PRIVATE
