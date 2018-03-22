@@ -137,8 +137,8 @@ public:
         }
     }
     
-    const std::string& usage() {
-        static std::string msg = "USAGE: wilton path/to/script.js"
+    const std::string usage() {
+        std::string msg = "USAGE: wilton path/to/script.js"
                 " [OPTION...]"
                 " [-- <app arguments>]";
         return msg;
