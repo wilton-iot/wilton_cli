@@ -23,6 +23,7 @@ if ( STATICLIB_TOOLCHAIN MATCHES "(windows|macosx)_.+" )
 endif ( )
 
 set ( ${PROJECT_NAME}_DEPS
+        staticlib_jni
         staticlib_json
         staticlib_utils
         staticlib_tinydir
@@ -42,13 +43,13 @@ endif ( )
 add_executable ( ${PROJECT_NAME}
         ${CMAKE_CURRENT_LIST_DIR}/src/cli.cpp
         ${${PROJECT_NAME}_RESFILE} )
-        
+
 target_include_directories ( ${PROJECT_NAME} BEFORE PRIVATE
         ${CMAKE_CURRENT_LIST_DIR}/include
         ${WILTON_DIR}/core/include
         ${WILTON_DIR}/modules/wilton_signal/include
         ${${PROJECT_NAME}_DEPS_PC_INCLUDE_DIRS} )
-        
+
 target_link_libraries ( ${PROJECT_NAME} PRIVATE
         wilton_signal
         wilton_core

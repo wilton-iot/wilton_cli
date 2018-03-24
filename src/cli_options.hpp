@@ -42,7 +42,7 @@ class cli_options {
     char* binary_modules_paths_ptr = nullptr;
     char* script_engine_name_ptr = nullptr;
     char* debug_port_prt = nullptr;
-    
+
 public:    
     poptContext ctx = nullptr;
     std::string parse_error;
@@ -59,7 +59,7 @@ public:
     int print_config = 0;
     int load_only = 0;
     int help = 0;
-    
+
     std::string startup_script;
     std::string exec_deps;
     std::string exec_code;
@@ -136,7 +136,7 @@ public:
             debug_port = (nullptr != debug_port_prt) ? std::string(debug_port_prt) : "";
         }
     }
-    
+
     const std::string usage() {
         std::string msg = "USAGE: wilton path/to/script.js"
                 " [OPTION...]"

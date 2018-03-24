@@ -22,11 +22,13 @@
  * Created on June 6, 2017, 6:31 PM
  */
 
+#include <array>
 #include <iostream>
 #include <string>
 #include <tuple>
 #include <vector>
 
+#include <jni.h>
 #include <popt.h>
 
 #include "staticlib/io.hpp"
@@ -258,10 +260,27 @@ std::string choose_default_engine(const std::string& opts_script_engine_name, co
     return std::string(WILTON_DEFAULT_SCRIPT_ENGINE_STR);
 }
 
-} // namespace
+void start_jvm(const std::string& exedir) {
+    auto opt_libpath = std::string("-Djava.library.path=") + exedir;
+    auto opt_classpath = std::string("-Djava.class.path=") + exedir + "wilton.jar";
+    JavaVM* jvm = nullptr;
+    JNIEnv* env = nullptr;
+    JavaVMInitArgs vm_args;
+    std::memset(std::addressof(vm_args), '\0', sizeof(vm_args));
+    std::array<JavaVMOption, 2> vm_opts;
+    std::memset(std::addressof(vm_opts), '\0', sizeof(vm_opts));
+    vm_opts[0].optionString = opt_libpath.c_str();
+    vm_opts[1].optionString = opt_classpath.c_str();
+    vm_args.version = JNI_VERSION_1_6;
+    vm_args.nOptions = vm_opts.size();
+    vm_args.options = vm_opts.data();
+    vm_args.ignoreUnrecognized = 0;
+    auto err = JNI_CreateJavaVM(std::addressof(jvm), std::addressof(env), std::addressof(vm_args));
+    if (JNI_OK  != err) throw new wilton::support::exception(TRACEMSG(
+            "JVM startup error, code: [" + sl::support::to_string(err) + "]"));
+}
 
-// valgrind run:
-// valgrind --leak-check=yes --show-reachable=yes --track-origins=yes --error-exitcode=42 --track-fds=yes --suppressions=../deps/cmake/resources/valgrind/openssl_malloc.supp  ./bin/wilton_cli ../test/scripts/runWiltonTests.js -m ../../modules.zip
+} // namespace
 
 int main(int argc, char** argv, char** envp) {    
     try {
@@ -287,10 +306,10 @@ int main(int argc, char** argv, char** envp) {
             std::cout << opts.usage() << std::endl;
             poptPrintHelp(opts.ctx, stdout, 0);
             return 0;
-        }                
-        
+        }
+
         auto exedir = find_exedir();
-        
+
         // check startup script
         auto startjs = 0 == opts.exec_one_liner ? opts.startup_script : 
                 write_temp_one_liner(exedir, opts.exec_deps, opts.exec_code);
@@ -308,7 +327,7 @@ int main(int argc, char** argv, char** envp) {
             std::cerr << "ERROR: invalid script file specified: [" + startjs + "]" << std::endl;
             return 1;
         }
-        
+
         // check modules dir
         auto moddir = !opts.modules_dir_or_zip.empty() ? opts.modules_dir_or_zip : exedir + "../std.wlib";
         auto modpath = sl::tinydir::path(moddir);
@@ -328,7 +347,7 @@ int main(int argc, char** argv, char** envp) {
         if ('/' != appdir.back()) {
             appdir.push_back('/');
         }
-        
+
         // get startup module
         auto startmod = std::string();
         auto startmod_dir = std::string();
@@ -354,9 +373,14 @@ int main(int argc, char** argv, char** envp) {
             return 1;
         }
 
+        // start JVM if needed
+        if ("rhino" == script_engine) {
+            start_jvm(exedir);
+        }
+
         // env vars
         auto env_vars = collect_env_vars(envp);
-        
+
         // startup call
         auto input = std::string();
         if (0 == opts.load_only) {
@@ -430,4 +454,3 @@ int main(int argc, char** argv, char** envp) {
         return 1;
     }
 }
-
