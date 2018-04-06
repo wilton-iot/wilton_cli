@@ -28,7 +28,6 @@
 #include <tuple>
 #include <vector>
 
-#include <jni.h>
 #include <popt.h>
 
 #include "staticlib/io.hpp"
@@ -44,6 +43,7 @@
 #include "wilton/support/misc.hpp"
 
 #include "cli_options.hpp"
+#include "jvm_engine.hpp"
 
 #define WILTON_QUOTE(value) #value
 #define WILTON_STR(value) WILTON_QUOTE(value)
@@ -116,12 +116,12 @@ std::vector<sl::json::field> prepare_paths(
     auto binmods = sl::utils::split(binary_modules_paths, ':');
     for(auto& mod : binmods) {
         if (!sl::utils::ends_with(mod, wilton::support::binmod_postfix)) {
-            throw new wilton::support::exception(TRACEMSG("Invalid binary module path specified," +
+            throw wilton::support::exception(TRACEMSG("Invalid binary module path specified," +
                     " must be 'path/to/mymod.wlib', path: [" + mod + "]"));
         }
         auto modpath = sl::tinydir::path(mod);
         if (!(modpath.exists() && modpath.is_regular_file())) {
-            throw new wilton::support::exception(TRACEMSG("Binary module file not found," +
+            throw wilton::support::exception(TRACEMSG("Binary module file not found," +
                     " path: [" + mod + "]"));
         }
         auto modfile = sl::utils::strip_parent_dir(mod);
@@ -178,7 +178,7 @@ sl::json::value load_packages_list(const std::string& modurl) {
     } else if (sl::utils::starts_with(modurl, wilton::support::file_proto_prefix)) {
         return read_json_file(modurl + packages_json_id);
     } else {
-        throw new wilton::support::exception(TRACEMSG(
+        throw wilton::support::exception(TRACEMSG(
                 "Unable to load 'wilton-packages.json' - unknown protocol," +
                 " baseUrl: [" + modurl + "]"));
     }
@@ -260,33 +260,24 @@ std::string choose_default_engine(const std::string& opts_script_engine_name, co
     return std::string(WILTON_DEFAULT_SCRIPT_ENGINE_STR);
 }
 
-void start_jvm(const std::string& exedir) {
-    auto opt_libpath = std::string("-Djava.library.path=") + exedir;
-    auto opt_classpath = std::string("-Djava.class.path=") + exedir + "wilton.jar";
-    JavaVM* jvm = nullptr;
-    JNIEnv* env = nullptr;
-    JavaVMInitArgs vm_args;
-    std::memset(std::addressof(vm_args), '\0', sizeof(vm_args));
-    std::array<JavaVMOption, 2> vm_opts;
-    std::memset(std::addressof(vm_opts), '\0', sizeof(vm_opts));
-    vm_opts[0].optionString = opt_libpath.c_str();
-    vm_opts[1].optionString = opt_classpath.c_str();
-    vm_args.version = JNI_VERSION_1_6;
-    vm_args.nOptions = vm_opts.size();
-    vm_args.options = vm_opts.data();
-    vm_args.ignoreUnrecognized = 0;
-    auto err = JNI_CreateJavaVM(std::addressof(jvm), std::addressof(env), std::addressof(vm_args));
-    if (JNI_OK  != err) throw new wilton::support::exception(TRACEMSG(
-            "JVM startup error, code: [" + sl::support::to_string(err) + "]"));
+void load_script_engine(const std::string& script_engine,
+        const std::string& exedir, const std::string& modurl) {
+    dyload_module("wilton_logging");
+    dyload_module("wilton_loader");
+    if ("rhino" != script_engine && "nashorn" != script_engine) {
+        dyload_module("wilton_" + script_engine);
+    } else {
+        wilton::cli::jvm::load_engine(script_engine, exedir, modurl);
+    }
 }
 
 } // namespace
 
 int main(int argc, char** argv, char** envp) {    
     try {
-        // parse laucher args
+        // parse launcher args
         int launcher_argc = find_launcher_args_end(argc, argv);
-        wilton::launcher::cli_options opts(launcher_argc, argv);
+        wilton::cli::cli_options opts(launcher_argc, argv);
         
         // collect app args
         auto apprags = std::vector<std::string>();
@@ -373,11 +364,6 @@ int main(int argc, char** argv, char** envp) {
             return 1;
         }
 
-        // start JVM if needed
-        if ("rhino" == script_engine) {
-            start_jvm(exedir);
-        }
-
         // env vars
         auto env_vars = collect_env_vars(envp);
 
@@ -430,9 +416,7 @@ int main(int argc, char** argv, char** envp) {
         }
 
         // load script engine
-        dyload_module("wilton_logging");
-        dyload_module("wilton_loader");
-        dyload_module("wilton_" + script_engine);
+        load_script_engine(script_engine, exedir, modurl);
 
         // init signals/ctrl+c to allow their use from js
         init_signals();

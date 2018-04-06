@@ -32,7 +32,7 @@
 #include <popt.h>
 
 namespace wilton {
-namespace launcher {
+namespace cli {
 
 class cli_options {
     std::vector<struct poptOption> table;

@@ -47,6 +47,7 @@ add_executable ( ${PROJECT_NAME}
 target_include_directories ( ${PROJECT_NAME} BEFORE PRIVATE
         ${CMAKE_CURRENT_LIST_DIR}/include
         ${WILTON_DIR}/core/include
+        ${WILTON_DIR}/modules/wilton_loader/include
         ${WILTON_DIR}/modules/wilton_signal/include
         ${${PROJECT_NAME}_DEPS_PC_INCLUDE_DIRS} )
 
@@ -54,6 +55,7 @@ target_link_libraries ( ${PROJECT_NAME} PRIVATE
         wilton_signal
         wilton_core
         wilton_logging
+        wilton_loader
         wilton_zip
         ${${PROJECT_NAME}_DEPS_PC_LIBRARIES} )
 
