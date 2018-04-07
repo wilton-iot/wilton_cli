@@ -174,7 +174,7 @@ void load_engine(const std::string& script_engine, const std::string& exedir,
     vm_opts[3].optionString = "-XX:+TieredCompilation";
     vm_opts[4].optionString = "-XX:TieredStopAtLevel=1";
     vm_args.version = JNI_VERSION_1_6;
-    vm_args.nOptions = vm_opts.size();
+    vm_args.nOptions = static_cast<jint>(vm_opts.size());
     vm_args.options = vm_opts.data();
     vm_args.ignoreUnrecognized = 0;
     auto JNI_CreateJavaVM_fun = load_jvm(exedir);
