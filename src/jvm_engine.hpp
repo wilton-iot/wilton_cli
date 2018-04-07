@@ -106,18 +106,24 @@ JNI_CreateJavaVM_type load_jvm_platform(const std::string& libdir) {
 #endif // STATICLIB_WINDOWS
 
 JNI_CreateJavaVM_type load_jvm(const std::string& exedir) {
-    auto basedir = exedir + "/../jre/lib/";
+#ifdef STATICLIB_WINDOWS
+    auto libdir = exedir + "../jre/bin/server/";
+    if (!sl::tinydir::path(libdir).exists()) throw wilton::support::exception(TRACEMSG(
+            "Cannot find JVM shared library, dir: [" + libdir + "]"));
+#else // !STATICLIB_WINDOWS
+    auto basedir = exedir + "../jre/lib/";
     auto libdir = std::string();
     if (sl::tinydir::path(basedir + "amd64").exists()) {
         libdir = basedir + "amd64/server/";
     } else if (sl::tinydir::path(basedir + "i386").exists()) {
-        libdir = basedir + "i386/client/";
+        libdir = basedir + "i386/server/";
     } else if (sl::tinydir::path(basedir + "aarch64").exists()) {
         libdir = basedir + "aarch64/server/";
     } else if (sl::tinydir::path(basedir + "arm32").exists()) {
-        libdir = basedir + "arm32/client/";
+        libdir = basedir + "arm32/server/";
     } else throw wilton::support::exception(TRACEMSG(
             "Cannot find JVM shared library, base dir: [" + basedir + "]"));
+#endif // !STATICLIB_WINDOWS
     // platform load
     return load_jvm_platform(libdir);
 }
@@ -138,7 +144,12 @@ std::string load_resource(const std::string& url) {
     return std::string(out, static_cast<size_t>(out_len));
 }
 
-std::string describe_java_exception(JNIEnv* env, jclass clazz, jthrowable exc) {
+std::string describe_java_exception(JNIEnv* env, jthrowable exc) {
+    jclass clazz = env->FindClass("wilton/WiltonJni");
+    if (nullptr == clazz) return "EXC_DESCRIBE_ERROR: class";
+    auto class_deferred = sl::support::defer([env, clazz]() STATICLIB_NOEXCEPT {
+        env->DeleteLocalRef(clazz);
+    });
     auto method_name = std::string("describeThrowable");
     auto method_sig = std::string("(Ljava/lang/Throwable;)Ljava/lang/String;");
     jmethodID method = env->GetStaticMethodID(clazz, method_name.c_str(), method_sig.c_str());
@@ -194,8 +205,8 @@ void load_engine(const std::string& script_engine, const std::string& exedir,
 
     // init rhino
     auto class_name = "rhino" == script_engine ? 
-        std::string("net/wiltontoolkit/support/rhino/WiltonRhinoInitializer") :
-        std::string("net/wiltontoolkit/support/nashorn/WiltonNashornInitializer");
+        std::string("wilton/support/rhino/WiltonRhinoInitializer") :
+        std::string("wilton/support/nashorn/WiltonNashornInitializer");
     jclass clazz = env->FindClass(class_name.c_str());
     if (nullptr == clazz) throw wilton::support::exception(TRACEMSG( 
             "JVM startup error, class not found: [" + class_name + "]"));
@@ -212,7 +223,7 @@ void load_engine(const std::string& script_engine, const std::string& exedir,
     jthrowable exc = env->ExceptionOccurred();
     if (nullptr != exc) {
         env->ExceptionClear();
-        std::string trace = describe_java_exception(env, clazz, exc);
+        std::string trace = describe_java_exception(env, exc);
         throw wilton::support::exception(TRACEMSG(trace));
     }
     //return [jvm]() STATICLIB_NOEXCEPT {
