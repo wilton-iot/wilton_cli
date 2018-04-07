@@ -33,11 +33,14 @@ set ( ${PROJECT_NAME}_DEPS
 staticlib_pkg_check_modules ( ${PROJECT_NAME}_DEPS_PC REQUIRED ${PROJECT_NAME}_DEPS )
 
 # executable
+set ( ${PROJECT_NAME}_PLATFORM_LIBS )
 set ( ${PROJECT_NAME}_RESFILE )
 if ( STATICLIB_TOOLCHAIN MATCHES "windows_.+" )
     configure_file ( ${CMAKE_CURRENT_LIST_DIR}/resources/${PROJECT_NAME}.rc
             ${CMAKE_CURRENT_BINARY_DIR}/${PROJECT_NAME}.rc )
     set ( ${PROJECT_NAME}_RESFILE ${CMAKE_CURRENT_BINARY_DIR}/${PROJECT_NAME}.rc )
+elseif( STATICLIB_TOOLCHAIN MATCHES "linux_.+" )
+    list ( APPEND ${PROJECT_NAME}_PLATFORM_LIBS dl )
 endif ( )
 
 add_executable ( ${PROJECT_NAME}
@@ -57,6 +60,7 @@ target_link_libraries ( ${PROJECT_NAME} PRIVATE
         wilton_logging
         wilton_loader
         wilton_zip
+        ${${PROJECT_NAME}_PLATFORM_LIBS}
         ${${PROJECT_NAME}_DEPS_PC_LIBRARIES} )
 
 # platform-specific link options
