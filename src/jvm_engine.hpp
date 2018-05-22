@@ -177,13 +177,10 @@ void load_engine(const std::string& script_engine, const std::string& exedir,
     JNIEnv* env = nullptr;
     JavaVMInitArgs vm_args;
     std::memset(std::addressof(vm_args), '\0', sizeof(vm_args));
-    std::array<JavaVMOption, 5> vm_opts;
+    std::array<JavaVMOption, 2> vm_opts;
     std::memset(std::addressof(vm_opts), '\0', sizeof(vm_opts));
     vm_opts[0].optionString = opt_libpath.c_str();
     vm_opts[1].optionString = opt_classpath.c_str();
-    vm_opts[2].optionString = "-XX:+UseSerialGC";
-    vm_opts[3].optionString = "-XX:+TieredCompilation";
-    vm_opts[4].optionString = "-XX:TieredStopAtLevel=1";
     vm_args.version = JNI_VERSION_1_6;
     vm_args.nOptions = static_cast<jint>(vm_opts.size());
     vm_args.options = vm_opts.data();
