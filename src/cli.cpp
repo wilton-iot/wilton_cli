@@ -166,7 +166,7 @@ sl::json::value read_json_zip_entry(const std::string& zip_url, const std::strin
             "Unable to load 'wilton-packages.json', ZIP entry: [" + entry + "]," +
             " file: [" + zip_path + "]"));
     auto stream = sl::unzip::open_zip_entry(idx, entry);
-    auto src = sl::io::streambuf_source(stream.get());
+    auto src = sl::io::streambuf_source(stream->rdbuf());
     return sl::json::load(src);
 }
 
