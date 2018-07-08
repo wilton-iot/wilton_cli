@@ -30,6 +30,7 @@
 
 #include <popt.h>
 
+#include "staticlib/config.hpp"
 #include "staticlib/io.hpp"
 #include "staticlib/json.hpp"
 #include "staticlib/utils.hpp"
@@ -400,6 +401,16 @@ int main(int argc, char** argv, char** envp) {
                 }
             },
             {"environmentVariables", std::move(env_vars)},
+// add compile-time OS
+#if defined(STATICLIB_ANDROID)
+            {"compileTimeOS", "android"},
+#elif defined(STATICLIB_WINDOWS)
+            {"compileTimeOS", "windows"},
+#elif defined(STATICLIB_LINUX)
+            {"compileTimeOS", "linux"},
+#elif defined(STATICLIB_MAC)
+            {"compileTimeOS", "macos"},
+#endif // OS
             {"debugConnectionPort", debug_port}
         });
         if (0 != opts.print_config) {
