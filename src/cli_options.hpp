@@ -59,6 +59,7 @@ public:
     int print_config = 0;
     int load_only = 0;
     int help = 0;
+    int trace_enable = 0;
 
     std::string startup_script;
     std::string exec_deps;
@@ -76,6 +77,7 @@ public:
         { "exec-one-liner", 'e', POPT_ARG_NONE, std::addressof(exec_one_liner), static_cast<int> ('e'), "Execute one-liner script", nullptr},
         { "print-config", 'p', POPT_ARG_NONE, std::addressof(print_config), static_cast<int> ('p'), "Print config on startup", nullptr},
         { "help", 'h', POPT_ARG_NONE, std::addressof(help), static_cast<int> ('h'), "Show this help message", nullptr},
+        { "trace-enable", 't', POPT_ARG_NONE, std::addressof(trace_enable), static_cast<int> ('t'), "Enables trace calls gatering", nullptr},
         { nullptr, 0, 0, nullptr, 0, nullptr, nullptr}
     }) {
 

@@ -39,6 +39,7 @@
 
 #include "wilton/wiltoncall.h"
 #include "wilton/wilton_signal.h"
+#include "wilton/wilton_service.h"
 
 #include "wilton/support/exception.hpp"
 #include "wilton/support/misc.hpp"
@@ -363,6 +364,11 @@ int main(int argc, char** argv, char** envp) {
         auto script_engine = choose_default_engine(opts.script_engine_name, debug_port);
         if (script_engine.empty()) {
             return 1;
+        }
+
+        // trace info enable
+        if (0 != opts.trace_enable) {
+            wilton_service_enable_trace_info_gather();
         }
 
         // env vars
