@@ -39,7 +39,6 @@
 
 #include "wilton/wiltoncall.h"
 #include "wilton/wilton_signal.h"
-#include "wilton/wilton_service.h"
 
 #include "wilton/support/exception.hpp"
 #include "wilton/support/misc.hpp"
@@ -366,11 +365,6 @@ int main(int argc, char** argv, char** envp) {
             return 1;
         }
 
-        // trace info enable
-        if (0 != opts.trace_enable) {
-            wilton_service_enable_trace_info_gather();
-        }
-
         // env vars
         auto env_vars = collect_env_vars(envp);
 
@@ -417,7 +411,8 @@ int main(int argc, char** argv, char** envp) {
 #elif defined(STATICLIB_MAC)
             {"compileTimeOS", "macos"},
 #endif // OS
-            {"debugConnectionPort", debug_port}
+            {"debugConnectionPort", debug_port},
+            {"traceEnable", opts.trace_enable}
         });
         if (0 != opts.print_config) {
             std::cout << input << std::endl;

@@ -52,7 +52,6 @@ target_include_directories ( ${PROJECT_NAME} BEFORE PRIVATE
         ${WILTON_DIR}/core/include
         ${WILTON_DIR}/modules/wilton_loader/include
         ${WILTON_DIR}/modules/wilton_signal/include
-        ${WILTON_DIR}/modules/wilton_service/include
         ${${PROJECT_NAME}_DEPS_PC_INCLUDE_DIRS} )
 
 target_link_libraries ( ${PROJECT_NAME} PRIVATE
@@ -61,7 +60,6 @@ target_link_libraries ( ${PROJECT_NAME} PRIVATE
         wilton_logging
         wilton_loader
         wilton_zip
-        wilton_service
         ${${PROJECT_NAME}_PLATFORM_LIBS}
         ${${PROJECT_NAME}_DEPS_PC_LIBRARIES} )
 
