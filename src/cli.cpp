@@ -411,7 +411,8 @@ int main(int argc, char** argv, char** envp) {
 #elif defined(STATICLIB_MAC)
             {"compileTimeOS", "macos"},
 #endif // OS
-            {"debugConnectionPort", debug_port}
+            {"debugConnectionPort", debug_port},
+            {"traceEnable", opts.trace_enable}
         });
         if (0 != opts.print_config) {
             std::cout << input << std::endl;
