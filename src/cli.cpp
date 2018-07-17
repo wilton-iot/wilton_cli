@@ -412,7 +412,7 @@ int main(int argc, char** argv, char** envp) {
             {"compileTimeOS", "macos"},
 #endif // OS
             {"debugConnectionPort", debug_port},
-            {"traceEnable", opts.trace_enable}
+            {"traceEnable", 0 != opts.trace_enable}
         });
         if (0 != opts.print_config) {
             std::cout << input << std::endl;
