@@ -28,8 +28,9 @@ set ( ${PROJECT_NAME}_DEPS
         staticlib_utils
         staticlib_tinydir
         staticlib_unzip
+        staticlib_ranges
         popt )
-        
+
 staticlib_pkg_check_modules ( ${PROJECT_NAME}_DEPS_PC REQUIRED ${PROJECT_NAME}_DEPS )
 
 # executable

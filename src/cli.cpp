@@ -44,6 +44,7 @@
 #include "wilton/support/misc.hpp"
 
 #include "cli_options.hpp"
+#include "ghc_init.hpp"
 #include "jvm_engine.hpp"
 
 #define WILTON_QUOTE(value) #value
@@ -136,9 +137,7 @@ std::vector<sl::json::field> prepare_paths(
 void dyload_module(const std::string& name) {
     auto err_dyload = wilton_dyload(name.c_str(), static_cast<int>(name.length()), nullptr, 0);
     if (nullptr != err_dyload) {
-        auto msg = TRACEMSG(err_dyload);
-        wilton_free(err_dyload);
-        throw wilton::support::exception(msg);
+        wilton::support::throw_wilton_error(err_dyload, TRACEMSG(err_dyload));
     }
 }
 
@@ -274,16 +273,16 @@ void load_script_engine(const std::string& script_engine,
 
 } // namespace
 
-int main(int argc, char** argv, char** envp) {    
+int main(int argc, char** argv, char** envp) {
     try {
         // parse launcher args
         int launcher_argc = find_launcher_args_end(argc, argv);
         wilton::cli::cli_options opts(launcher_argc, argv);
         
         // collect app args
-        auto apprags = std::vector<std::string>();
+        auto appargs = std::vector<std::string>();
         for (int i = launcher_argc + 1; i < argc; i++) {
-            apprags.emplace_back(argv[i]);
+            appargs.emplace_back(argv[i]);
         }
 
         // check invalid options
@@ -302,8 +301,20 @@ int main(int argc, char** argv, char** envp) {
 
         auto exedir = find_exedir();
 
+        // get appdir
+        auto appdir = !opts.application_dir.empty() ? opts.application_dir : sl::tinydir::full_path(exedir + "../");
+        if ('/' != appdir.back()) {
+            appdir.push_back('/');
+        }
+
+        // check whether GHC mode is requested
+        if (0 != opts.ghc_init) {
+            wilton::cli::ghc::init_and_run_main(appdir, opts.startup_script, appargs);
+            return 0;
+        }
+
         // check startup script
-        auto startjs = 0 == opts.exec_one_liner ? opts.startup_script : 
+        auto startjs = 0 == opts.exec_one_liner ? opts.startup_script :
                 write_temp_one_liner(exedir, opts.exec_deps, opts.exec_code);
         auto tmpcleaner = sl::support::defer([&opts, &startjs]() STATICLIB_NOEXCEPT {
             if (0 != opts.exec_one_liner) {
@@ -332,12 +343,6 @@ int main(int argc, char** argv, char** envp) {
                 std::string("zip://") + moddir;
         if (modpath.is_directory() && '/' != modurl.at(modurl.length() - 1)) {
             modurl.push_back('/');
-        }
-
-        // get appdir
-        auto appdir = !opts.application_dir.empty() ? opts.application_dir : sl::tinydir::full_path(exedir + "../");
-        if ('/' != appdir.back()) {
-            appdir.push_back('/');
         }
 
         // get startup module
@@ -374,9 +379,9 @@ int main(int argc, char** argv, char** envp) {
             input = sl::json::dumps({
                 {"module", startmod_id},
                 {"func", "main"},
-                {"args", [&apprags] {
+                {"args", [&appargs] {
                         auto res = std::vector<sl::json::value>();
-                        for (auto& st : apprags) {
+                        for (auto& st : appargs) {
                             res.emplace_back(st);
                         }
                         return res;
@@ -387,7 +392,7 @@ int main(int argc, char** argv, char** envp) {
                 {"module", startmod_id}
             });
         }
-        // wilton init
+        // prepare wilton config
         auto config = sl::json::dumps({
             {"defaultScriptEngine", script_engine},
             {"applicationDirectory", appdir},
@@ -438,12 +443,12 @@ int main(int argc, char** argv, char** envp) {
         int out_len = 0;
         char* err_run = wiltoncall_runscript(script_engine.c_str(), static_cast<int>(script_engine.length()),
                 input.c_str(), static_cast<int> (input.length()), &out, &out_len);
+        wilton_free(out);
         if (nullptr != err_run) {
             std::cerr << "ERROR: " << err_run << std::endl;
             wilton_free(err_run);
             return 1;
         }
-        wilton_free(out);
         return 0;
     } catch (const std::exception& e) {
         std::cerr << "ERROR: " << e.what() << std::endl;

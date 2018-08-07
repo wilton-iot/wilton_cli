@@ -43,7 +43,7 @@ class cli_options {
     char* script_engine_name_ptr = nullptr;
     char* debug_port_prt = nullptr;
 
-public:    
+public:
     poptContext ctx = nullptr;
     std::string parse_error;
     std::vector<std::string> args;
@@ -60,6 +60,7 @@ public:
     int load_only = 0;
     int help = 0;
     int trace_enable = 0;
+    int ghc_init = 0;
 
     std::string startup_script;
     std::string exec_deps;
@@ -76,8 +77,9 @@ public:
         { "load-only", 'l', POPT_ARG_NONE, std::addressof(load_only), static_cast<int> ('l'), "Load specified script without calling 'main' function", nullptr},
         { "exec-one-liner", 'e', POPT_ARG_NONE, std::addressof(exec_one_liner), static_cast<int> ('e'), "Execute one-liner script", nullptr},
         { "print-config", 'p', POPT_ARG_NONE, std::addressof(print_config), static_cast<int> ('p'), "Print config on startup", nullptr},
+        { "trace-enable", 't', POPT_ARG_NONE, std::addressof(trace_enable), static_cast<int> ('t'), "Enables trace calls gathering", nullptr},
+        { "ghc-init", 'g', POPT_ARG_NONE, std::addressof(ghc_init), static_cast<int> ('g'), "Initialize GHC runtime instead of JS engine", nullptr},
         { "help", 'h', POPT_ARG_NONE, std::addressof(help), static_cast<int> ('h'), "Show this help message", nullptr},
-        { "trace-enable", 't', POPT_ARG_NONE, std::addressof(trace_enable), static_cast<int> ('t'), "Enables trace calls gatering", nullptr},
         { nullptr, 0, 0, nullptr, 0, nullptr, nullptr}
     }) {
 
