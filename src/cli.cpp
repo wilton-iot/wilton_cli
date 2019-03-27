@@ -73,17 +73,19 @@ std::string find_exedir() {
 }
 
 std::string read_appname(const std::string& appdir) {
-    try {
+    auto pconf = sl::tinydir::path(appdir + "conf/");
+    if (pconf.exists()) {
         auto cfile = sl::tinydir::path(appdir + "conf/config.json");
-        auto src = cfile.open_read();
-        auto json = sl::json::load(src);
-        return json["appname"].as_string_nonempty_or_throw();
-    } catch(const std::exception&) {
-        return std::string();
+        if (cfile.exists() && !cfile.is_directory()) {
+            auto src = cfile.open_read();
+            auto json = sl::json::load(src);
+            return json["appname"].as_string_nonempty_or_throw();
+        }
     }
+    return std::string();
 }
 
-std::tuple<std::string, std::string, std::string> find_startup_module(const std::string& appdir,
+std::tuple<std::string, std::string, std::string> find_startup_module(
         const std::string& opts_startup_module_name, const std::string& startjs) {
     auto startjs_full = sl::tinydir::full_path(startjs);
     auto dir = sl::utils::strip_filename(startjs_full);
@@ -92,9 +94,7 @@ std::tuple<std::string, std::string, std::string> find_startup_module(const std:
         mod = opts_startup_module_name;
     } else {
         // try to get appname
-        if (dir == appdir) {
-            mod = read_appname(appdir);
-        }
+        mod = read_appname(dir);
         if (mod.empty()) {
             // fallback to dir name
             mod = sl::utils::strip_parent_dir(dir);
@@ -349,7 +349,7 @@ int main(int argc, char** argv, char** envp) {
         auto startmod = std::string();
         auto startmod_dir = std::string();
         auto startmod_id = std::string();
-        std::tie(startmod, startmod_dir, startmod_id) = find_startup_module(appdir, opts.startup_module_name, startjs);
+        std::tie(startmod, startmod_dir, startmod_id) = find_startup_module(opts.startup_module_name, startjs);
         if (startmod.empty()) {
             std::cerr << "ERROR: cannot determine startup module name, use '-s' to specify it" << std::endl;
             return 1;
