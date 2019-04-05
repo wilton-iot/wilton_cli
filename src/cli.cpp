@@ -202,7 +202,12 @@ std::vector<sl::json::field> collect_env_vars(char** envp) {
 std::string write_temp_one_liner(const std::string& exedir, const std::string& deps, const std::string& code) {
     // prepare tmp file path
     auto rsg = sl::utils::random_string_generator();
-    auto path_str = exedir + "../work/" + rsg.generate(8) + ".js";
+    auto name = "wilton_" + rsg.generate(8) + ".js";
+#ifdef STATICLIB_LINUX
+    auto path_str = "/tmp/" + name;
+#else // !STATICLIB_LINUX
+    auto path_str = exedir + "../work/" + name;
+#endif // STATICLIB_LINUX
     auto path = sl::tinydir::path(path_str);
     auto tmpl_path = sl::tinydir::path(exedir + "../conf/one-liner-template.js");
     
