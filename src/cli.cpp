@@ -199,7 +199,7 @@ std::string write_temp_one_liner(const std::string& wilton_home, const std::stri
 #ifdef STATICLIB_LINUX
     auto path_str = "/tmp/" + name;
 #else // !STATICLIB_LINUX
-    auto path_str = exedir + "../work/" + name;
+    auto path_str =  wilton_home + "work/" + name;
 #endif // STATICLIB_LINUX
     auto path = sl::tinydir::path(path_str);
     auto tmpl_path = sl::tinydir::path(wilton_home + "conf/one-liner-template.js");
