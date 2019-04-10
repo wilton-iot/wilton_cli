@@ -65,13 +65,6 @@ int find_launcher_args_end(int argc, char** argv) {
     return argc;
 }
 
-std::string find_exedir() {
-    auto exepath = sl::utils::current_executable_path();
-    auto exedir = sl::utils::strip_filename(exepath);
-    std::replace(exedir.begin(), exedir.end(), '\\', '/');
-    return exedir;
-}
-
 std::string read_appname(const std::string& appdir) {
     auto pconf = sl::tinydir::path(appdir + "conf/");
     if (pconf.exists()) {
@@ -199,7 +192,7 @@ std::vector<sl::json::field> collect_env_vars(char** envp) {
     return vec;
 }
 
-std::string write_temp_one_liner(const std::string& exedir, const std::string& deps, const std::string& code) {
+std::string write_temp_one_liner(const std::string& wilton_home, const std::string& deps, const std::string& code) {
     // prepare tmp file path
     auto rsg = sl::utils::random_string_generator();
     auto name = "wilton_" + rsg.generate(8) + ".js";
@@ -209,7 +202,7 @@ std::string write_temp_one_liner(const std::string& exedir, const std::string& d
     auto path_str = exedir + "../work/" + name;
 #endif // STATICLIB_LINUX
     auto path = sl::tinydir::path(path_str);
-    auto tmpl_path = sl::tinydir::path(exedir + "../conf/one-liner-template.js");
+    auto tmpl_path = sl::tinydir::path(wilton_home + "conf/one-liner-template.js");
     
     // prepare deps
     auto deps_line = std::string();
@@ -266,12 +259,13 @@ std::string choose_default_engine(const std::string& opts_script_engine_name, co
 }
 
 void load_script_engine(const std::string& script_engine,
-        const std::string& exedir, const std::string& modurl) {
+        const std::string& wilton_home, const std::string& modurl) {
     dyload_module("wilton_logging");
     dyload_module("wilton_loader");
     if ("rhino" != script_engine && "nashorn" != script_engine) {
         dyload_module("wilton_" + script_engine);
     } else {
+        auto exedir = wilton_home + "bin/";
         wilton::cli::jvm::load_engine(script_engine, exedir, modurl);
     }
 }
@@ -304,10 +298,10 @@ int main(int argc, char** argv, char** envp) {
             return 0;
         }
 
-        auto exedir = find_exedir();
-
         // get appdir
-        auto appdir = !opts.application_dir.empty() ? opts.application_dir : sl::tinydir::full_path(exedir + "../");
+        auto wilton_exec = sl::tinydir::normalize_path(sl::utils::current_executable_path());
+        auto wilton_home = sl::utils::strip_filename(sl::tinydir::normalize_path(sl::utils::strip_filename(wilton_exec)));
+        auto appdir = !opts.application_dir.empty() ? opts.application_dir : wilton_home;
         if ('/' != appdir.back()) {
             appdir.push_back('/');
         }
@@ -320,7 +314,7 @@ int main(int argc, char** argv, char** envp) {
 
         // check startup script
         auto startjs = 0 == opts.exec_one_liner ? opts.startup_script :
-                write_temp_one_liner(exedir, opts.exec_deps, opts.exec_code);
+                write_temp_one_liner(wilton_home, opts.exec_deps, opts.exec_code);
         auto tmpcleaner = sl::support::defer([&opts, &startjs]() STATICLIB_NOEXCEPT {
             if (0 != opts.exec_one_liner) {
                 std::remove(startjs.c_str());
@@ -337,7 +331,7 @@ int main(int argc, char** argv, char** envp) {
         }
 
         // check modules dir
-        auto moddir = !opts.modules_dir_or_zip.empty() ? opts.modules_dir_or_zip : exedir + "../std.wlib";
+        auto moddir = !opts.modules_dir_or_zip.empty() ? opts.modules_dir_or_zip : wilton_home + "std.wlib";
         auto modpath = sl::tinydir::path(moddir);
         if (!modpath.exists()) {
             std::cerr << "ERROR: specified modules directory (or wlib bundle) not found: [" + moddir + "]" << std::endl;
@@ -400,6 +394,8 @@ int main(int argc, char** argv, char** envp) {
         // prepare wilton config
         auto config = sl::json::dumps({
             {"defaultScriptEngine", script_engine},
+            {"wiltonExecutable", wilton_exec},
+            {"wiltonHome", wilton_home},
             {"applicationDirectory", appdir},
             {"requireJs", {
                     {"waitSeconds", 0},
@@ -438,7 +434,7 @@ int main(int argc, char** argv, char** envp) {
         }
 
         // load script engine
-        load_script_engine(script_engine, exedir, modurl);
+        load_script_engine(script_engine, wilton_home, modurl);
 
         // init signals/ctrl+c to allow their use from js
         init_signals();
