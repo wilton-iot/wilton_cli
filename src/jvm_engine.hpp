@@ -25,6 +25,8 @@
 #define WILTON_CLI_JVM_ENGINE_HPP
 
 #include <string>
+#include <vector>
+#include <utility>
 
 #include <jni.h>
 
@@ -95,13 +97,27 @@ JNI_CreateJavaVM_type load_jvm_platform(const std::string& libdir) {
 
 #endif // STATICLIB_WINDOWS
 
-JNI_CreateJavaVM_type load_jvm(const std::string& exedir) {
+JNI_CreateJavaVM_type load_jvm(const std::vector<std::pair<std::string, std::string>>& env_vars) {
+    auto java_home = std::string();
+    for (auto& pa : env_vars) {
+        if ("JAVA_HOME" == pa.first) {
+            java_home = sl::tinydir::normalize_path(pa.second) + "/";
+            break;
+        }
+    }
+    if (java_home.empty()) throw wilton::support::exception(TRACEMSG(
+            "Cannot find JAVA_HOME environment variable"));
+    if (!sl::tinydir::path(java_home).exists()) throw wilton::support::exception(TRACEMSG(
+            "JAVA_HOME directory not found, path: [" + java_home + "]"));
+    if (sl::tinydir::path(java_home + "jre").exists()) {
+        java_home.append("jre/");
+    }
 #ifdef STATICLIB_WINDOWS
-    auto libdir = exedir + "../jre/bin/server/";
+    auto libdir = java_home + "bin/server/";
     if (!sl::tinydir::path(libdir).exists()) throw wilton::support::exception(TRACEMSG(
             "Cannot find JVM shared library, dir: [" + libdir + "]"));
 #else // !STATICLIB_WINDOWS
-    auto basedir = exedir + "../jre/lib/";
+    auto basedir = java_home + "lib/";
     auto libdir = std::string();
     if (sl::tinydir::path(basedir + "amd64").exists()) {
         libdir = basedir + "amd64/server/";
@@ -111,6 +127,8 @@ JNI_CreateJavaVM_type load_jvm(const std::string& exedir) {
         libdir = basedir + "aarch64/server/";
     } else if (sl::tinydir::path(basedir + "arm32").exists()) {
         libdir = basedir + "arm32/server/";
+    } else if (sl::tinydir::path(basedir + "arm").exists()) {
+        libdir = basedir + "arm/client/";
     } else throw wilton::support::exception(TRACEMSG(
             "Cannot find JVM shared library, base dir: [" + basedir + "]"));
 #endif // !STATICLIB_WINDOWS
@@ -159,7 +177,7 @@ std::string describe_java_exception(JNIEnv* env, jthrowable exc) {
 }
 
 void load_engine(const std::string& script_engine, const std::string& exedir,
-        const std::string& modurl) {
+        const std::string& modurl, const std::vector<std::pair<std::string, std::string>>& env_vars) {
     // start jvm
     auto opt_libpath = std::string("-Djava.library.path=") + exedir;
     auto opt_classpath = std::string("-Djava.class.path=") + exedir + "wilton_rhino.jar";
@@ -175,7 +193,7 @@ void load_engine(const std::string& script_engine, const std::string& exedir,
     vm_args.nOptions = static_cast<jint>(vm_opts.size());
     vm_args.options = vm_opts.data();
     vm_args.ignoreUnrecognized = 0;
-    auto JNI_CreateJavaVM_fun = load_jvm(exedir);
+    auto JNI_CreateJavaVM_fun = load_jvm(env_vars);
     auto err = JNI_CreateJavaVM_fun(std::addressof(jvm), std::addressof(env), std::addressof(vm_args));
     if (JNI_OK  != err) throw wilton::support::exception(TRACEMSG(
             "JVM startup error, code: [" + sl::support::to_string(err) + "]"));

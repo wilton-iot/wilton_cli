@@ -27,6 +27,7 @@
 #include <string>
 #include <tuple>
 #include <vector>
+#include <utility>
 
 #include <popt.h>
 
@@ -258,15 +259,15 @@ std::string choose_default_engine(const std::string& opts_script_engine_name, co
     return std::string(WILTON_DEFAULT_SCRIPT_ENGINE_STR);
 }
 
-void load_script_engine(const std::string& script_engine,
-        const std::string& wilton_home, const std::string& modurl) {
+void load_script_engine(const std::string& script_engine, const std::string& wilton_home,
+        const std::string& modurl, const std::vector<std::pair<std::string, std::string>>& env_vars) {
     dyload_module("wilton_logging");
     dyload_module("wilton_loader");
     if ("rhino" != script_engine && "nashorn" != script_engine) {
         dyload_module("wilton_" + script_engine);
     } else {
         auto exedir = wilton_home + "bin/";
-        wilton::cli::jvm::load_engine(script_engine, exedir, modurl);
+        wilton::cli::jvm::load_engine(script_engine, exedir, modurl, env_vars);
     }
 }
 
@@ -371,6 +372,10 @@ int main(int argc, char** argv, char** envp) {
 
         // env vars
         auto env_vars = collect_env_vars(envp);
+        auto env_vars_pairs = std::vector<std::pair<std::string, std::string>>();
+        for (auto& fi : env_vars) {
+            env_vars_pairs.emplace_back(fi.name(), fi.as_string_or_throw(fi.name()));
+        }
 
         // startup call
         auto input = std::string();
@@ -434,7 +439,7 @@ int main(int argc, char** argv, char** envp) {
         }
 
         // load script engine
-        load_script_engine(script_engine, wilton_home, modurl);
+        load_script_engine(script_engine, wilton_home, modurl, env_vars_pairs);
 
         // init signals/ctrl+c to allow their use from js
         init_signals();
