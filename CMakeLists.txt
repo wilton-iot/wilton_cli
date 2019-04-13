@@ -44,18 +44,18 @@ elseif( STATICLIB_TOOLCHAIN MATCHES "linux_.+" )
     list ( APPEND ${PROJECT_NAME}_PLATFORM_LIBS dl )
 endif ( )
 
-add_executable ( ${PROJECT_NAME}
+set ( ${PROJECT_NAME}_SOURCES
         ${CMAKE_CURRENT_LIST_DIR}/src/cli.cpp
         ${${PROJECT_NAME}_RESFILE} )
 
-target_include_directories ( ${PROJECT_NAME} BEFORE PRIVATE
+set ( ${PROJECT_NAME}_INCLUDES
         ${CMAKE_CURRENT_LIST_DIR}/include
         ${WILTON_DIR}/core/include
         ${WILTON_DIR}/modules/wilton_loader/include
         ${WILTON_DIR}/modules/wilton_signal/include
         ${${PROJECT_NAME}_DEPS_PC_INCLUDE_DIRS} )
 
-target_link_libraries ( ${PROJECT_NAME} PRIVATE
+set ( ${PROJECT_NAME}_LIBS
         wilton_signal
         wilton_core
         wilton_logging
@@ -64,15 +64,32 @@ target_link_libraries ( ${PROJECT_NAME} PRIVATE
         ${${PROJECT_NAME}_PLATFORM_LIBS}
         ${${PROJECT_NAME}_DEPS_PC_LIBRARIES} )
 
+add_executable ( ${PROJECT_NAME} ${${PROJECT_NAME}_SOURCES} )
+target_include_directories ( ${PROJECT_NAME} BEFORE PRIVATE ${${PROJECT_NAME}_INCLUDES} )
+target_link_libraries ( ${PROJECT_NAME} PRIVATE ${${PROJECT_NAME}_LIBS} )
+
 # platform-specific link options
 if ( STATICLIB_TOOLCHAIN MATCHES "windows_.+" )
+    # wilton_cli
     target_link_libraries ( ${PROJECT_NAME} PRIVATE wtsapi32 )
     set_property ( TARGET ${PROJECT_NAME} APPEND_STRING PROPERTY LINK_FLAGS "/manifest:no" )
+    # wiltonw
+    add_executable ( wiltonw ${${PROJECT_NAME}_SOURCES} )
+    target_include_directories ( wiltonw BEFORE PRIVATE ${${PROJECT_NAME}_INCLUDES} )
+    target_link_libraries ( wiltonw PRIVATE ${${PROJECT_NAME}_LIBS} wtsapi32 )
+    set_property ( TARGET wiltonw APPEND_STRING PROPERTY LINK_FLAGS "/manifest:no" )
+    get_target_property ( wiltonw_LINK_FLAGS wiltonw LINK_FLAGS )
     if ( STATICLIB_TOOLCHAIN MATCHES "windows_amd64_.+" )
         # no chakra on winxp
         target_compile_definitions ( ${PROJECT_NAME} PRIVATE
                 -DWILTON_DEFAULT_SCRIPT_ENGINE=chakra )
+        target_compile_definitions ( wiltonw PRIVATE
+                -DWILTON_DEFAULT_SCRIPT_ENGINE=chakra )
+        set ( wiltonw_LINK_FLAGS "${wiltonw_LINK_FLAGS} /subsystem:windows,6.01 /entry:mainCRTStartup" )
+    elseif ( STATICLIB_TOOLCHAIN MATCHES "windows_i386_.+" )
+        set ( wiltonw_LINK_FLAGS "${wiltonw_LINK_FLAGS} /subsystem:windows,5.01 /entry:mainCRTStartup" )
     endif ( )
+    set_target_properties ( wiltonw PROPERTIES LINK_FLAGS ${wiltonw_LINK_FLAGS} )
 endif ( )
 
 # debuginfo
