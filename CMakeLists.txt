@@ -92,9 +92,19 @@ if ( STATICLIB_TOOLCHAIN MATCHES "windows_.+" )
     set_target_properties ( wiltonw PROPERTIES LINK_FLAGS ${wiltonw_LINK_FLAGS} )
 endif ( )
 
+# mac dep paths
+if ( STATICLIB_TOOLCHAIN MATCHES "macosx_.+" )
+	add_custom_command ( TARGET ${PROJECT_NAME} POST_BUILD
+			COMMAND ${WILTON_DIR}/resources/scripts/mac-deps.sh 
+					${CMAKE_EXECUTABLE_PREFIX}${PROJECT_NAME}${CMAKE_EXECUTABLE_SUFFIX}
+			WORKING_DIRECTORY ${CMAKE_RUNTIME_OUTPUT_DIRECTORY}
+			COMMENT "Rewriting dependency paths: [${CMAKE_EXECUTABLE_PREFIX}${PROJECT_NAME}${CMAKE_EXECUTABLE_SUFFIX}]" )
+endif ( )
+
 # debuginfo
 staticlib_extract_debuginfo_executable ( ${PROJECT_NAME} )
 
+# default engine
 if ( STATICLIB_TOOLCHAIN MATCHES "(linux|macosx)_.+" )
     target_compile_definitions ( ${PROJECT_NAME} PRIVATE
             -DWILTON_DEFAULT_SCRIPT_ENGINE=jsc )
