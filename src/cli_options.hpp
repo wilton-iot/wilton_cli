@@ -41,7 +41,8 @@ class cli_options {
     char* startup_module_name_ptr = nullptr;
     char* binary_modules_paths_ptr = nullptr;
     char* script_engine_name_ptr = nullptr;
-    char* debug_port_prt = nullptr;
+    char* debug_port_ptr = nullptr;
+    char* new_project_ptr = nullptr;
 
 public:
     poptContext ctx = nullptr;
@@ -55,6 +56,7 @@ public:
     std::string binary_modules_paths;
     std::string script_engine_name;
     std::string debug_port;
+    std::string new_project;
     int exec_one_liner = 0;
     int print_config = 0;
     int load_only = 0;
@@ -73,12 +75,13 @@ public:
         { "binary-modules", 'b', POPT_ARG_STRING, std::addressof(binary_modules_paths_ptr), static_cast<int> ('b'), "Binary modules paths list with ':' separator", nullptr},
         { "application-dir", 'a', POPT_ARG_STRING, std::addressof(application_dir_ptr), static_cast<int> ('a'), "Path to application directory", nullptr},
         { "javascript-engine", 'j', POPT_ARG_STRING, std::addressof(script_engine_name_ptr), static_cast<int> ('j'), "Name of the JavaScript engine to use", nullptr},
-        { "debug-enable-on-port", 'd', POPT_ARG_STRING, std::addressof(debug_port_prt), static_cast<int> ('d'), "Port to use for debugger", nullptr},
+        { "debug-enable-on-port", 'd', POPT_ARG_STRING, std::addressof(debug_port_ptr), static_cast<int> ('d'), "Port to use for debugger", nullptr},
         { "load-only", 'l', POPT_ARG_NONE, std::addressof(load_only), static_cast<int> ('l'), "Load specified script without calling 'main' function", nullptr},
         { "exec-one-liner", 'e', POPT_ARG_NONE, std::addressof(exec_one_liner), static_cast<int> ('e'), "Execute one-liner script", nullptr},
         { "print-config", 'p', POPT_ARG_NONE, std::addressof(print_config), static_cast<int> ('p'), "Print config on startup", nullptr},
         { "trace-enable", 't', POPT_ARG_NONE, std::addressof(trace_enable), static_cast<int> ('t'), "Enables trace calls gathering", nullptr},
         { "ghc-init", 'g', POPT_ARG_NONE, std::addressof(ghc_init), static_cast<int> ('g'), "Initialize GHC runtime instead of JS engine", nullptr},
+        { "new-project", 'n', POPT_ARG_STRING, std::addressof(new_project_ptr), static_cast<int> ('n'), "Create a new 'wilton application' project", nullptr},
         { "help", 'h', POPT_ARG_NONE, std::addressof(help), static_cast<int> ('h'), "Show this help message", nullptr},
         { nullptr, 0, 0, nullptr, 0, nullptr, nullptr}
     }) {
@@ -111,21 +114,24 @@ public:
 
         if (0 == help) {
             // check script specified
-            if (0 == exec_one_liner && (1 != args.size() || args.at(0).empty())) {
+            if (0 == exec_one_liner && nullptr == new_project_ptr &&
+                    (1 != args.size() || args.at(0).empty())) {
                 parse_error.append("invalid arguments, startup script not specified");
                 return;
             }
 
             // set options and fix slashes
-            if (0 == exec_one_liner) {
-                startup_script = args.at(0);
-                std::replace(startup_script.begin(), startup_script.end(), '\\', '/');
-            } else if (2 != args.size()) {
-                parse_error.append("invalid one-liner arguments, expected: [<dep1:dep2:...> \"<code>\"]");
-                return;
-            } else {
-                exec_deps = args.at(0);
-                exec_code = args.at(1);
+            if (nullptr == new_project_ptr) {
+                if (0 == exec_one_liner) {
+                    startup_script = args.at(0);
+                    std::replace(startup_script.begin(), startup_script.end(), '\\', '/');
+                } else if (2 != args.size()) {
+                    parse_error.append("invalid one-liner arguments, expected: [<dep1:dep2:...> \"<code>\"]");
+                    return;
+                } else {
+                    exec_deps = args.at(0);
+                    exec_code = args.at(1);
+                }
             }
 
             modules_dir_or_zip = nullptr != modules_dir_or_zip_ptr ? std::string(modules_dir_or_zip_ptr) : "";
@@ -137,7 +143,8 @@ public:
             application_dir = nullptr != application_dir_ptr ? std::string(application_dir_ptr) : "";
             std::replace(application_dir.begin(), application_dir.end(), '\\', '/');
             script_engine_name = nullptr != script_engine_name_ptr ? std::string(script_engine_name_ptr) : "";
-            debug_port = (nullptr != debug_port_prt) ? std::string(debug_port_prt) : "";
+            debug_port = (nullptr != debug_port_ptr) ? std::string(debug_port_ptr) : "";
+            new_project = (nullptr != new_project_ptr) ? std::string(new_project_ptr) : "";
         }
     }
 

@@ -290,6 +290,65 @@ sl::support::optional<uint8_t> parse_exit_code(sl::io::span<char> span) {
     return sl::support::optional<uint8_t>();
 }
 
+uint8_t run_new_project(const std::string& wilton_home, const std::string& new_project) {
+    // packages
+    auto modurl = std::string("zip://") + wilton_home + "std.wlib";
+    auto packages = load_packages_list(modurl);
+    // prepare wilton config
+    auto config = sl::json::dumps({
+        {"defaultScriptEngine", "duktape"},
+        {"requireJs", {
+                {"waitSeconds", 0},
+                {"enforceDefine", true},
+                {"nodeIdCompat", true},
+                {"baseUrl", modurl},
+                {"paths", std::vector<sl::json::field>()},
+                {"packages", std::move(packages)}
+            }
+        },
+        {"environmentVariables", std::vector<sl::json::field>()}
+    });
+
+    // init wilton
+    auto err_init = wiltoncall_init(config.c_str(), static_cast<int> (config.length()));
+    if (nullptr != err_init) {
+        std::cerr << "ERROR: " << err_init << std::endl;
+        wilton_free(err_init);
+        return 1;
+    }
+
+    // load script engine
+    auto script_engine = std::string("duktape");
+    dyload_module("wilton_logging");
+    dyload_module("wilton_loader");
+    dyload_module("wilton_" + script_engine);
+
+    // startup call
+    auto input = sl::json::dumps({
+        {"module", "wilton-newproject/index"},
+        {"func", "main"},
+        {"args", [&new_project] {
+                auto res = std::vector<sl::json::value>();
+                res.emplace_back(new_project);
+                return res;
+            }()}
+    });
+
+    char* out = nullptr;
+    int out_len = 0;
+    char* err_run = wiltoncall_runscript(script_engine.c_str(), static_cast<int>(script_engine.length()),
+            input.c_str(), static_cast<int> (input.length()), &out, &out_len);
+    auto outcleaner = sl::support::defer([out]() STATICLIB_NOEXCEPT {
+        wilton_free(out);
+    });
+    if (nullptr != err_run) {
+        std::cerr << "ERROR: " << err_run << std::endl;
+        wilton_free(err_run);
+        return 1;
+    }
+    return 0;
+}
+
 } // namespace
 
 int main(int argc, char** argv, char** envp) {
@@ -330,6 +389,11 @@ int main(int argc, char** argv, char** envp) {
         if (0 != opts.ghc_init) {
             wilton::cli::ghc::init_and_run_main(appdir, opts.startup_script, appargs);
             return 0;
+        }
+
+        // check whether new-project requested
+        if (!opts.new_project.empty()) {
+            return run_new_project(wilton_home, opts.new_project);
         }
 
         // check startup script
