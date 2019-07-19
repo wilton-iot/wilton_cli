@@ -271,6 +271,25 @@ void load_script_engine(const std::string& script_engine, const std::string& wil
     }
 }
 
+sl::support::optional<uint8_t> parse_exit_code(sl::io::span<char> span) {
+    if (span.size() > 3) {
+        return sl::support::optional<uint8_t>();
+    }
+    auto st = std::string(span.data(), span.size());
+    try {
+        uint16_t val16 = sl::utils::parse_uint16(st);
+        if (val16 > std::numeric_limits<uint8_t>::max()) {
+            return sl::support::optional<uint8_t>();
+        } else {
+            auto val8 = static_cast<uint8_t>(val16);
+            return sl::support::optional<uint8_t>(std::move(val8));
+        }
+    } catch(const std::exception& e) {
+        return sl::support::optional<uint8_t>();
+    }
+    return sl::support::optional<uint8_t>();
+}
+
 } // namespace
 
 int main(int argc, char** argv, char** envp) {
@@ -449,11 +468,18 @@ int main(int argc, char** argv, char** envp) {
         int out_len = 0;
         char* err_run = wiltoncall_runscript(script_engine.c_str(), static_cast<int>(script_engine.length()),
                 input.c_str(), static_cast<int> (input.length()), &out, &out_len);
-        wilton_free(out);
+        auto outcleaner = sl::support::defer([out]() STATICLIB_NOEXCEPT {
+            wilton_free(out);
+        });
         if (nullptr != err_run) {
             std::cerr << "ERROR: " << err_run << std::endl;
             wilton_free(err_run);
             return 1;
+        } else if (out_len > 0) {
+            auto opt = parse_exit_code({out, out_len});
+            if (opt.has_value()) {
+                return opt.value();
+            } // pass through
         }
         return 0;
     } catch (const std::exception& e) {
