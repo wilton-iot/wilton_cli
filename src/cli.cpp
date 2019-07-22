@@ -284,7 +284,7 @@ sl::support::optional<uint8_t> parse_exit_code(sl::io::span<char> span) {
             auto val8 = static_cast<uint8_t>(val16);
             return sl::support::optional<uint8_t>(std::move(val8));
         }
-    } catch(const std::exception& e) {
+    } catch(const std::exception&) {
         return sl::support::optional<uint8_t>();
     }
     return sl::support::optional<uint8_t>();
