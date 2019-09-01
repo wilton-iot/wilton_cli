@@ -164,18 +164,20 @@ sl::json::value read_json_zip_entry(const std::string& zip_url, const std::strin
     return sl::json::load(src);
 }
 
-sl::json::value load_packages_list(const std::string& modurl) {
+std::vector<sl::json::value> load_packages_list(const std::string& modurl) {
     // note: cannot use 'wilton_loader' here, as it is not initialized yet
     auto packages_json_id = "wilton-requirejs/wilton-packages.json";
+    auto res = sl::json::value();
     if (sl::utils::starts_with(modurl, wilton::support::zip_proto_prefix)) {
-        return read_json_zip_entry(modurl, packages_json_id);
+        res = read_json_zip_entry(modurl, packages_json_id);
     } else if (sl::utils::starts_with(modurl, wilton::support::file_proto_prefix)) {
-        return read_json_file(modurl + packages_json_id);
+        res = read_json_file(modurl + packages_json_id);
     } else {
         throw wilton::support::exception(TRACEMSG(
                 "Unable to load 'wilton-packages.json' - unknown protocol," +
                 " baseUrl: [" + modurl + "]"));
     }
+    return std::move(res.as_array_or_throw(packages_json_id));
 }
 
 std::vector<sl::json::field> collect_env_vars(char** envp) {
@@ -290,24 +292,69 @@ sl::support::optional<uint8_t> parse_exit_code(sl::io::span<char> span) {
     return sl::support::optional<uint8_t>();
 }
 
-uint8_t run_new_project(const std::string& wilton_home, const std::string& new_project) {
-    // packages
-    auto modurl = std::string("zip://") + wilton_home + "std.wlib";
-    auto packages = load_packages_list(modurl);
-    // prepare wilton config
+std::string create_wilton_config(const wilton::cli::cli_options& opts,
+        const std::string& script_engine, const std::string& wilton_exec,
+        const std::string& wilton_home, const std::string& appdir,
+        const std::string& modurl, std::vector<sl::json::field> paths,
+        std::vector<sl::json::value> packages, std::vector<sl::json::field> env_vars,
+        const std::string& debug_port, const std::string& startup_call) {
     auto config = sl::json::dumps({
-        {"defaultScriptEngine", "duktape"},
+        {"defaultScriptEngine", script_engine},
+        {"wiltonExecutable", wilton_exec},
+        {"wiltonHome", wilton_home},
+        {"applicationDirectory", appdir},
         {"requireJs", {
                 {"waitSeconds", 0},
                 {"enforceDefine", true},
                 {"nodeIdCompat", true},
                 {"baseUrl", modurl},
-                {"paths", std::vector<sl::json::field>()},
+                {"paths", std::move(paths)},
                 {"packages", std::move(packages)}
             }
         },
-        {"environmentVariables", std::vector<sl::json::field>()}
+        {"environmentVariables", std::move(env_vars)},
+// add compile-time OS
+#if defined(STATICLIB_ANDROID)
+        {"compileTimeOS", "android"},
+#elif defined(STATICLIB_WINDOWS)
+        {"compileTimeOS", "windows"},
+#elif defined(STATICLIB_LINUX)
+        {"compileTimeOS", "linux"},
+#elif defined(STATICLIB_MAC)
+        {"compileTimeOS", "macos"},
+#endif // OS
+        {"debugConnectionPort", debug_port},
+        {"traceEnable", 0 != opts.trace_enable}
     });
+    if (0 != opts.print_config) {
+        std::cout << startup_call << std::endl;
+        std::cout << config << std::endl;
+    }
+    return config;
+}
+
+uint8_t run_new_project(const wilton::cli::cli_options& opts,
+        const std::string& script_engine, const std::string& wilton_exec,
+        const std::string& wilton_home, const std::string& modurl,
+        std::vector<sl::json::value> packages, const std::string& debug_port,
+        std::vector<sl::json::field> env_vars,
+        const std::vector<std::pair<std::string, std::string>>& env_vars_pairs) {
+
+    // startup call
+    auto startup_call = sl::json::dumps({
+        {"module", "wilton-newproject/index"},
+        {"func", "main"},
+        {"args", [&opts] {
+                auto res = std::vector<sl::json::value>();
+                res.emplace_back(opts.new_project);
+                return res;
+            }()}
+    });
+
+    // prepare wilton config
+    auto config = create_wilton_config(opts, script_engine, wilton_exec, wilton_home,
+            wilton_home, modurl, std::vector<sl::json::field>(), std::move(packages),
+            std::move(env_vars), debug_port, startup_call);
 
     // init wilton
     auto err_init = wiltoncall_init(config.c_str(), static_cast<int> (config.length()));
@@ -318,26 +365,12 @@ uint8_t run_new_project(const std::string& wilton_home, const std::string& new_p
     }
 
     // load script engine
-    auto script_engine = std::string("duktape");
-    dyload_module("wilton_logging");
-    dyload_module("wilton_loader");
-    dyload_module("wilton_" + script_engine);
-
-    // startup call
-    auto input = sl::json::dumps({
-        {"module", "wilton-newproject/index"},
-        {"func", "main"},
-        {"args", [&new_project] {
-                auto res = std::vector<sl::json::value>();
-                res.emplace_back(new_project);
-                return res;
-            }()}
-    });
+    load_script_engine(script_engine, wilton_home, modurl, env_vars_pairs);
 
     char* out = nullptr;
     int out_len = 0;
     char* err_run = wiltoncall_runscript(script_engine.c_str(), static_cast<int>(script_engine.length()),
-            input.c_str(), static_cast<int> (input.length()), &out, &out_len);
+            startup_call.c_str(), static_cast<int> (startup_call.length()), &out, &out_len);
     auto outcleaner = sl::support::defer([out]() STATICLIB_NOEXCEPT {
         wilton_free(out);
     });
@@ -345,6 +378,103 @@ uint8_t run_new_project(const std::string& wilton_home, const std::string& new_p
         std::cerr << "ERROR: " << err_run << std::endl;
         wilton_free(err_run);
         return 1;
+    }
+    return 0;
+}
+
+uint8_t run_startup_script(const wilton::cli::cli_options& opts,
+        const std::string& script_engine, const std::string& wilton_exec,
+        const std::string& wilton_home, const std::string& modurl,
+        std::vector<sl::json::value> packages, const std::string& debug_port,
+        std::vector<sl::json::field> env_vars,
+        const std::vector<std::pair<std::string, std::string>>& env_vars_pairs,
+        const std::string& appdir, const std::vector<std::string>& appargs) {
+    // check startup script
+    auto startjs = 0 == opts.exec_one_liner ? opts.startup_script :
+            write_temp_one_liner(wilton_home, opts.exec_deps, opts.exec_code);
+    auto tmpcleaner = sl::support::defer([&opts, &startjs]() STATICLIB_NOEXCEPT {
+        if (0 != opts.exec_one_liner) {
+            std::remove(startjs.c_str());
+        }
+    });
+    auto startjs_path = sl::tinydir::path(startjs);
+    if (!startjs_path.exists()) {
+        std::cerr << "ERROR: specified script file not found: [" + startjs + "]" << std::endl;
+        return 1;
+    }
+    if(!startjs_path.is_regular_file()) {
+        std::cerr << "ERROR: invalid script file specified: [" + startjs + "]" << std::endl;
+        return 1;
+    }
+
+    // get startup module
+    auto startmod = std::string();
+    auto startmod_dir = std::string();
+    auto startmod_id = std::string();
+    std::tie(startmod, startmod_dir, startmod_id) = find_startup_module(opts.startup_module_name, startjs);
+    if (startmod.empty()) {
+        std::cerr << "ERROR: cannot determine startup module name, use '-s' to specify it" << std::endl;
+        return 1;
+    }
+
+    // prepare paths
+    auto paths = prepare_paths(opts.binary_modules_paths, startmod, startmod_dir);
+
+    // startup call
+    auto startup_call = std::string();
+    if (0 == opts.load_only) {
+        startup_call = sl::json::dumps({
+            {"module", startmod_id},
+            {"func", "main"},
+            {"args", [&appargs] {
+                    auto res = std::vector<sl::json::value>();
+                    for (auto& st : appargs) {
+                        res.emplace_back(st);
+                    }
+                    return res;
+                }()}
+        });
+    } else  {
+        startup_call = sl::json::dumps({
+            {"module", startmod_id}
+        });
+    }
+    // prepare wilton config
+    auto config = create_wilton_config(opts, script_engine, wilton_exec, wilton_home,
+            appdir, modurl, std::move(paths), std::move(packages), std::move(env_vars),
+            debug_port, startup_call);
+
+    // init wilton
+    auto err_init = wiltoncall_init(config.c_str(), static_cast<int> (config.length()));
+    if (nullptr != err_init) {
+        std::cerr << "ERROR: " << err_init << std::endl;
+        wilton_free(err_init);
+        return 1;
+    }
+
+    // load script engine
+    load_script_engine(script_engine, wilton_home, modurl, env_vars_pairs);
+
+    // init signals/ctrl+c to allow their use from js
+    init_signals();
+
+    // call script
+    char* out = nullptr;
+    int out_len = 0;
+    char* err_run = wiltoncall_runscript(script_engine.c_str(), static_cast<int>(script_engine.length()),
+            startup_call.c_str(), static_cast<int> (startup_call.length()), &out, &out_len);
+    auto outcleaner = sl::support::defer([out]() STATICLIB_NOEXCEPT {
+        wilton_free(out);
+    });
+    if (nullptr != err_run) {
+        std::cerr << "ERROR: " << err_run << std::endl;
+        wilton_free(err_run);
+        return 1;
+    } else if (out_len > 0) {
+        auto opt = parse_exit_code({out, out_len});
+        if (opt.has_value()) {
+            return opt.value();
+        } // pass through
     }
     return 0;
 }
@@ -391,29 +521,6 @@ int main(int argc, char** argv, char** envp) {
             return 0;
         }
 
-        // check whether new-project requested
-        if (!opts.new_project.empty()) {
-            return run_new_project(wilton_home, opts.new_project);
-        }
-
-        // check startup script
-        auto startjs = 0 == opts.exec_one_liner ? opts.startup_script :
-                write_temp_one_liner(wilton_home, opts.exec_deps, opts.exec_code);
-        auto tmpcleaner = sl::support::defer([&opts, &startjs]() STATICLIB_NOEXCEPT {
-            if (0 != opts.exec_one_liner) {
-                std::remove(startjs.c_str());
-            }
-        });
-        auto startjs_path = sl::tinydir::path(startjs);
-        if (!startjs_path.exists()) {
-            std::cerr << "ERROR: specified script file not found: [" + startjs + "]" << std::endl;
-            return 1;
-        }
-        if(!startjs_path.is_regular_file()) {
-            std::cerr << "ERROR: invalid script file specified: [" + startjs + "]" << std::endl;
-            return 1;
-        }
-
         // check modules dir
         auto moddir = !opts.modules_dir_or_zip.empty() ? opts.modules_dir_or_zip : wilton_home + "std.wlib";
         auto modpath = sl::tinydir::path(moddir);
@@ -427,19 +534,6 @@ int main(int argc, char** argv, char** envp) {
         if (modpath.is_directory() && '/' != modurl.at(modurl.length() - 1)) {
             modurl.push_back('/');
         }
-
-        // get startup module
-        auto startmod = std::string();
-        auto startmod_dir = std::string();
-        auto startmod_id = std::string();
-        std::tie(startmod, startmod_dir, startmod_id) = find_startup_module(opts.startup_module_name, startjs);
-        if (startmod.empty()) {
-            std::cerr << "ERROR: cannot determine startup module name, use '-s' to specify it" << std::endl;
-            return 1;
-        }
-
-        // prepare paths
-        auto paths = prepare_paths(opts.binary_modules_paths, startmod, startmod_dir);
 
         // packages
         auto packages = load_packages_list(modurl);
@@ -460,92 +554,19 @@ int main(int argc, char** argv, char** envp) {
             env_vars_pairs.emplace_back(fi.name(), fi.as_string_or_throw(fi.name()));
         }
 
-        // startup call
-        auto input = std::string();
-        if (0 == opts.load_only) {
-            input = sl::json::dumps({
-                {"module", startmod_id},
-                {"func", "main"},
-                {"args", [&appargs] {
-                        auto res = std::vector<sl::json::value>();
-                        for (auto& st : appargs) {
-                            res.emplace_back(st);
-                        }
-                        return res;
-                    }()}
-            });
-        } else  {
-            input = sl::json::dumps({
-                {"module", startmod_id}
-            });
+        // check whether new-project requested
+        uint8_t rescode = 0;
+        if (!opts.new_project.empty()) {
+            rescode = run_new_project(opts, script_engine, wilton_exec, wilton_home,
+                    modurl, std::move(packages), debug_port, std::move(env_vars),
+                    env_vars_pairs);
+        } else {
+            rescode = run_startup_script(opts, script_engine, wilton_exec, wilton_home,
+                    modurl, std::move(packages), debug_port, std::move(env_vars),
+                    env_vars_pairs, appdir, appargs);
         }
-        // prepare wilton config
-        auto config = sl::json::dumps({
-            {"defaultScriptEngine", script_engine},
-            {"wiltonExecutable", wilton_exec},
-            {"wiltonHome", wilton_home},
-            {"applicationDirectory", appdir},
-            {"requireJs", {
-                    {"waitSeconds", 0},
-                    {"enforceDefine", true},
-                    {"nodeIdCompat", true},
-                    {"baseUrl", modurl},
-                    {"paths", std::move(paths)},
-                    {"packages", std::move(packages)}
-                }
-            },
-            {"environmentVariables", std::move(env_vars)},
-// add compile-time OS
-#if defined(STATICLIB_ANDROID)
-            {"compileTimeOS", "android"},
-#elif defined(STATICLIB_WINDOWS)
-            {"compileTimeOS", "windows"},
-#elif defined(STATICLIB_LINUX)
-            {"compileTimeOS", "linux"},
-#elif defined(STATICLIB_MAC)
-            {"compileTimeOS", "macos"},
-#endif // OS
-            {"debugConnectionPort", debug_port},
-            {"traceEnable", 0 != opts.trace_enable}
-        });
-        if (0 != opts.print_config) {
-            std::cout << input << std::endl;
-            std::cout << config << std::endl;
-        }
+        return rescode;
 
-        // init wilton
-        auto err_init = wiltoncall_init(config.c_str(), static_cast<int> (config.length()));
-        if (nullptr != err_init) {
-            std::cerr << "ERROR: " << err_init << std::endl;
-            wilton_free(err_init);
-            return 1;
-        }
-
-        // load script engine
-        load_script_engine(script_engine, wilton_home, modurl, env_vars_pairs);
-
-        // init signals/ctrl+c to allow their use from js
-        init_signals();
-
-        // call script
-        char* out = nullptr;
-        int out_len = 0;
-        char* err_run = wiltoncall_runscript(script_engine.c_str(), static_cast<int>(script_engine.length()),
-                input.c_str(), static_cast<int> (input.length()), &out, &out_len);
-        auto outcleaner = sl::support::defer([out]() STATICLIB_NOEXCEPT {
-            wilton_free(out);
-        });
-        if (nullptr != err_run) {
-            std::cerr << "ERROR: " << err_run << std::endl;
-            wilton_free(err_run);
-            return 1;
-        } else if (out_len > 0) {
-            auto opt = parse_exit_code({out, out_len});
-            if (opt.has_value()) {
-                return opt.value();
-            } // pass through
-        }
-        return 0;
     } catch (const std::exception& e) {
         std::cerr << "ERROR: " << e.what() << std::endl;
         return 1;
