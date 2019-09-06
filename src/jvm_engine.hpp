@@ -53,6 +53,12 @@ namespace jvm {
 typedef jint(*JNI_CreateJavaVM_type)(JavaVM** p_vm, JNIEnv** p_env, void* vm_args);
 
 #ifdef STATICLIB_WINDOWS
+const std::string cl_separ = ";";
+#else // !STATICLIB_WINDOWS
+const std::string cl_separ = ":";
+#endif // STATICLIB_WINDOWS
+
+#ifdef STATICLIB_WINDOWS
 
 JNI_CreateJavaVM_type load_jvm_platform(const std::string& libdir) {
     auto libpath = libdir + "jvm.dll";
@@ -181,6 +187,12 @@ void load_engine(const std::string& script_engine, const std::string& exedir,
     // start jvm
     auto opt_libpath = std::string("-Djava.library.path=") + exedir;
     auto opt_classpath = std::string("-Djava.class.path=") + exedir + "wilton_rhino.jar";
+    for (auto& pa : env_vars) {
+        if ("CLASSPATH" == pa.first && !pa.second.empty()) {
+            opt_classpath += (cl_separ + pa.second);
+            break;
+        }
+    }
     JavaVM* jvm = nullptr;
     JNIEnv* env = nullptr;
     JavaVMInitArgs vm_args;
