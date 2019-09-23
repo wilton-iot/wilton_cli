@@ -54,6 +54,10 @@
 #define WILTON_DEFAULT_SCRIPT_ENGINE duktape
 #endif // WILTON_DEFAULT_SCRIPT_ENGINE
 #define WILTON_DEFAULT_SCRIPT_ENGINE_STR WILTON_STR(WILTON_DEFAULT_SCRIPT_ENGINE)
+#ifndef WILTON_VERSION
+#define WILTON_VERSION UNSPECIFIED
+#endif // !WILTON_VERSION
+#define WILTON_VERSION_STR WILTON_STR(WILTON_VERSION)
 
 namespace { // anonymous
 
@@ -302,6 +306,7 @@ std::string create_wilton_config(const wilton::cli::cli_options& opts,
         {"defaultScriptEngine", script_engine},
         {"wiltonExecutable", wilton_exec},
         {"wiltonHome", wilton_home},
+        {"wiltonVersion", WILTON_VERSION_STR},
         {"applicationDirectory", appdir},
         {"requireJs", {
                 {"waitSeconds", 0},
@@ -504,6 +509,12 @@ int main(int argc, char** argv, char** envp) {
         if (0 != opts.help) {
             std::cout << opts.usage() << std::endl;
             poptPrintHelp(opts.ctx, stdout, 0);
+            return 0;
+        }
+
+        // show version
+        if (0 != opts.version) {
+            std::cout << std::string(WILTON_VERSION_STR) << std::endl;
             return 0;
         }
 

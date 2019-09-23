@@ -67,6 +67,7 @@ set ( ${PROJECT_NAME}_LIBS
 add_executable ( ${PROJECT_NAME} ${${PROJECT_NAME}_SOURCES} )
 target_include_directories ( ${PROJECT_NAME} BEFORE PRIVATE ${${PROJECT_NAME}_INCLUDES} )
 target_link_libraries ( ${PROJECT_NAME} PRIVATE ${${PROJECT_NAME}_LIBS} )
+target_compile_options ( ${PROJECT_NAME} PRIVATE -DWILTON_VERSION=${WILTON_VERSION} )
 
 # platform-specific link options
 if ( STATICLIB_TOOLCHAIN MATCHES "windows_.+" )

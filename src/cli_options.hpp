@@ -63,6 +63,7 @@ public:
     int help = 0;
     int trace_enable = 0;
     int ghc_init = 0;
+    int version = 0;
 
     std::string startup_script;
     std::string exec_deps;
@@ -82,6 +83,7 @@ public:
         { "trace-enable", 't', POPT_ARG_NONE, std::addressof(trace_enable), static_cast<int> ('t'), "Enables trace calls gathering", nullptr},
         { "ghc-init", 'g', POPT_ARG_NONE, std::addressof(ghc_init), static_cast<int> ('g'), "Initialize GHC runtime instead of JS engine", nullptr},
         { "new-project", 'n', POPT_ARG_STRING, std::addressof(new_project_ptr), static_cast<int> ('n'), "Create a new 'wilton application' project", nullptr},
+        { "version", 'v', POPT_ARG_NONE, std::addressof(version), static_cast<int> ('v'), "Show version number", nullptr},
         { "help", 'h', POPT_ARG_NONE, std::addressof(help), static_cast<int> ('h'), "Show this help message", nullptr},
         { nullptr, 0, 0, nullptr, 0, nullptr, nullptr}
     }) {
@@ -112,7 +114,7 @@ public:
             }
         }
 
-        if (0 == help) {
+        if (0 == help && 0 == version) {
             // check script specified
             if (0 == exec_one_liner && nullptr == new_project_ptr &&
                     (1 != args.size() || args.at(0).empty())) {
