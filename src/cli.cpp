@@ -77,7 +77,7 @@ std::string read_appname(const std::string& appdir) {
         if (cfile.exists() && !cfile.is_directory()) {
             auto src = cfile.open_read();
             auto json = sl::json::load(src);
-            return json["appname"].as_string_nonempty_or_throw();
+            return json["appname"].as_string_nonempty_or_throw("conf/config.json:appname");
         }
     }
     return std::string();
