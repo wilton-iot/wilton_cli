@@ -43,6 +43,7 @@ class cli_options {
     char* script_engine_name_ptr = nullptr;
     char* debug_port_ptr = nullptr;
     char* new_project_ptr = nullptr;
+    char* environment_vars_ptr = nullptr;
 
 public:
     poptContext ctx = nullptr;
@@ -57,6 +58,7 @@ public:
     std::string script_engine_name;
     std::string debug_port;
     std::string new_project;
+    std::string environment_vars;
     int exec_one_liner = 0;
     int print_config = 0;
     int load_only = 0;
@@ -83,6 +85,7 @@ public:
         { "trace-enable", 't', POPT_ARG_NONE, std::addressof(trace_enable), static_cast<int> ('t'), "Enables trace calls gathering", nullptr},
         { "ghc-init", 'g', POPT_ARG_NONE, std::addressof(ghc_init), static_cast<int> ('g'), "Initialize GHC runtime instead of JS engine", nullptr},
         { "new-project", 'n', POPT_ARG_STRING, std::addressof(new_project_ptr), static_cast<int> ('n'), "Create a new 'wilton application' project", nullptr},
+        { "environment-vars", 'r', POPT_ARG_STRING, std::addressof(environment_vars_ptr), static_cast<int> ('r'), "Additional environment variables with ':' separator", nullptr},
         { "version", 'v', POPT_ARG_NONE, std::addressof(version), static_cast<int> ('v'), "Show version number", nullptr},
         { "help", 'h', POPT_ARG_NONE, std::addressof(help), static_cast<int> ('h'), "Show this help message", nullptr},
         { nullptr, 0, 0, nullptr, 0, nullptr, nullptr}
@@ -147,6 +150,7 @@ public:
             script_engine_name = nullptr != script_engine_name_ptr ? std::string(script_engine_name_ptr) : "";
             debug_port = (nullptr != debug_port_ptr) ? std::string(debug_port_ptr) : "";
             new_project = (nullptr != new_project_ptr) ? std::string(new_project_ptr) : "";
+            environment_vars = (nullptr != environment_vars_ptr) ? std::string(environment_vars_ptr) : "";
         }
     }
 

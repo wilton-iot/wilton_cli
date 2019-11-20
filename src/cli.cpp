@@ -29,9 +29,13 @@
 #include <vector>
 #include <utility>
 
+#include "staticlib/config.hpp"
+#ifndef STATICLIB_WINDOWS
+#include <unistd.h>
+#endif // STATICLIB_WINDOWS
+
 #include <popt.h>
 
-#include "staticlib/config.hpp"
 #include "staticlib/io.hpp"
 #include "staticlib/json.hpp"
 #include "staticlib/utils.hpp"
@@ -184,13 +188,57 @@ std::vector<sl::json::value> load_packages_list(const std::string& modurl) {
     return std::move(res.as_array_or_throw(packages_json_id));
 }
 
-std::vector<sl::json::field> collect_env_vars(char** envp) {
+std::string get_env_var_value(const std::vector<std::string>& parts) {
+    if (parts.size() < 2) throw wilton::support::exception(TRACEMSG(
+            "Invalid environment variable vector specified," +
+            " parts count: [" + sl::support::to_string(parts.size()) + "]"));
+    auto value = sl::utils::trim(parts.at(1));
+    for (size_t i = 2; i < parts.size(); i++) {
+        value.push_back('=');
+        value += sl::utils::trim(parts.at(i));
+    }
+    return value;
+}
+
+void set_env_vars(const std::string& environment_vars) {
+    char delim = ':';
+    if (sl::utils::starts_with(environment_vars, ";")) {
+        delim = ';';
+    }
+    auto vars = sl::utils::split(environment_vars, delim);
+    for (auto& var : vars) {
+        auto parts = sl::utils::split(var, '=');
+        if (parts.size() < 2) throw wilton::support::exception(TRACEMSG(
+                    "Invalid environment variable specified," +
+                    " must be in 'name=value' format, var: [" + var + "]"));
+        auto name = sl::utils::trim(parts.at(0));
+        auto value = get_env_var_value(parts);
+#ifdef STATICLIB_WINDOWS
+        auto err = _putenv_s(name.c_str(), value.c_str());
+#else // !STATICLIB_WINDOWS
+        auto err = setenv(name.c_str(), value.c_str(), 1);
+#endif
+        if (0 != err) throw wilton::support::exception(TRACEMSG(
+                "Error setting environment variable,"
+                " name: [" + name + "]," +
+                " value: [" + value + "]"));
+    }
+}
+
+std::vector<sl::json::field> collect_env_vars() {
+#ifdef STATICLIB_WINDOWS
+    auto envp = _environ;
+#else // !STATICLIB_WINDOWS
+    auto envp = environ;
+#endif
     auto vec = std::vector<sl::json::field>();
     for (char** el = envp; *el != nullptr; el++) {
         auto var = std::string(*el);
         auto parts = sl::utils::split(var, '=');
-        if (2 == parts.size()) {
-            vec.emplace_back(parts.at(0), parts.at(1));
+        if (parts.size() >= 2) {
+            auto name = sl::utils::trim(parts.at(0));
+            auto value = get_env_var_value(parts);
+            vec.emplace_back(std::move(name), std::move(value));
         }
     }
     std::sort(vec.begin(), vec.end(), [](const sl::json::field& a, const sl::json::field& b) {
@@ -486,7 +534,7 @@ uint8_t run_startup_script(const wilton::cli::cli_options& opts,
 
 } // namespace
 
-int main(int argc, char** argv, char** envp) {
+int main(int argc, char** argv) {
     try {
         // parse launcher args
         int launcher_argc = find_launcher_args_end(argc, argv);
@@ -526,6 +574,9 @@ int main(int argc, char** argv, char** envp) {
             appdir.push_back('/');
         }
 
+        // set environment vars
+        set_env_vars(opts.environment_vars);
+
         // check whether GHC mode is requested
         if (0 != opts.ghc_init) {
             wilton::cli::ghc::init_and_run_main(appdir, opts.startup_script, appargs);
@@ -559,7 +610,7 @@ int main(int argc, char** argv, char** envp) {
         }
 
         // env vars
-        auto env_vars = collect_env_vars(envp);
+        auto env_vars = collect_env_vars();
         auto env_vars_pairs = std::vector<std::pair<std::string, std::string>>();
         for (auto& fi : env_vars) {
             env_vars_pairs.emplace_back(fi.name(), fi.as_string_or_throw(fi.name()));
