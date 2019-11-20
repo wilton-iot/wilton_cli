@@ -22,6 +22,7 @@
  * Created on June 6, 2017, 6:31 PM
  */
 
+#include <cstdlib>
 #include <array>
 #include <iostream>
 #include <string>
@@ -30,9 +31,11 @@
 #include <utility>
 
 #include "staticlib/config.hpp"
-#ifndef STATICLIB_WINDOWS
+#if defined(STATICLIB_LINUX)
 #include <unistd.h>
-#endif // STATICLIB_WINDOWS
+#elif defined(STATICLIB_MAC)
+extern char** environ;
+#endif
 
 #include <popt.h>
 
@@ -113,11 +116,24 @@ std::tuple<std::string, std::string, std::string> find_startup_module(
     return std::make_tuple(mod, dir, script_id);
 }
 
+char platform_delimiter(const std::string& arg) {
+#ifdef STATICLIB_WINDOWS
+    char delim = ';';
+#else // !STATICLIB_WINDOWS
+    char delim = ':';
+#endif // STATICLIB_WINDOWS
+    if (sl::utils::starts_with(arg, ";") ||
+            sl::utils::starts_with(arg, ":")) {
+        delim = arg.at(0);
+    }
+    return delim;
+}
+
 std::vector<sl::json::field> prepare_paths(
         const std::string& binary_modules_paths, const std::string& startmod, const std::string& startmod_dir) {
     std::vector<sl::json::field> res;
     res.emplace_back(startmod, wilton::support::file_proto_prefix + startmod_dir);
-    auto binmods = sl::utils::split(binary_modules_paths, ':');
+    auto binmods = sl::utils::split(binary_modules_paths, platform_delimiter(binary_modules_paths));
     for(auto& mod : binmods) {
         if (!sl::utils::ends_with(mod, wilton::support::binmod_postfix)) {
             throw wilton::support::exception(TRACEMSG("Invalid binary module path specified," +
@@ -201,11 +217,7 @@ std::string get_env_var_value(const std::vector<std::string>& parts) {
 }
 
 void set_env_vars(const std::string& environment_vars) {
-    char delim = ':';
-    if (sl::utils::starts_with(environment_vars, ";")) {
-        delim = ';';
-    }
-    auto vars = sl::utils::split(environment_vars, delim);
+    auto vars = sl::utils::split(environment_vars, platform_delimiter(environment_vars));
     for (auto& var : vars) {
         auto parts = sl::utils::split(var, '=');
         if (parts.size() < 2) throw wilton::support::exception(TRACEMSG(
