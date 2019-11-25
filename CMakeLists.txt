@@ -18,6 +18,7 @@ cmake_minimum_required ( VERSION 2.8.12 )
 project ( wilton_cli CXX )
 
 # dependencies
+staticlib_add_subdirectory ( ${STATICLIB_DEPS}/external_utf8cpp )
 if ( STATICLIB_TOOLCHAIN MATCHES "(windows|macosx)_.+" )
     staticlib_add_subdirectory ( ${STATICLIB_DEPS}/external_popt )
 endif ( )
@@ -29,7 +30,8 @@ set ( ${PROJECT_NAME}_DEPS
         staticlib_tinydir
         staticlib_unzip
         staticlib_ranges
-        popt )
+        popt
+        utf8cpp )
 
 staticlib_pkg_check_modules ( ${PROJECT_NAME}_DEPS_PC REQUIRED ${PROJECT_NAME}_DEPS )
 

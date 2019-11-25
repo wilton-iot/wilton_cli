@@ -25,6 +25,7 @@
 #include <cstdlib>
 #include <array>
 #include <iostream>
+#include <iterator>
 #include <string>
 #include <tuple>
 #include <vector>
@@ -37,7 +38,8 @@
 extern char** environ;
 #endif
 
-#include <popt.h>
+#include "popt.h"
+#include "utf8.h"
 
 #include "staticlib/io.hpp"
 #include "staticlib/json.hpp"
@@ -249,8 +251,12 @@ std::vector<sl::json::field> collect_env_vars() {
         auto parts = sl::utils::split(var, '=');
         if (parts.size() >= 2) {
             auto name = sl::utils::trim(parts.at(0));
+            auto name_clean = std::string();
+            utf8::replace_invalid(name.begin(), name.end(), std::back_inserter(name_clean));
             auto value = get_env_var_value(parts);
-            vec.emplace_back(std::move(name), std::move(value));
+            auto value_clean = std::string();
+            utf8::replace_invalid(value.begin(), value.end(), std::back_inserter(value_clean));
+            vec.emplace_back(std::move(name_clean), std::move(value_clean));
         }
     }
     std::sort(vec.begin(), vec.end(), [](const sl::json::field& a, const sl::json::field& b) {
