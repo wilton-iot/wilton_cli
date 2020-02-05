@@ -131,8 +131,8 @@ char platform_delimiter(const std::string& arg) {
     return delim;
 }
 
-std::vector<sl::json::field> prepare_paths(
-        const std::string& binary_modules_paths, const std::string& startmod, const std::string& startmod_dir) {
+std::vector<sl::json::field> prepare_paths(const std::string& binary_modules_paths,
+        const std::string& startmod, const std::string& startmod_dir) {
     std::vector<sl::json::field> res;
     res.emplace_back(startmod, wilton::support::file_proto_prefix + startmod_dir);
     auto binmods = sl::utils::split(binary_modules_paths, platform_delimiter(binary_modules_paths));
@@ -147,7 +147,8 @@ std::vector<sl::json::field> prepare_paths(
                     " path: [" + mod + "]"));
         }
         auto modfile = sl::utils::strip_parent_dir(mod);
-        auto modname = modfile.substr(0, modfile.length() - wilton::support::binmod_postfix.length());
+        auto modsubname = modfile.substr(0, modfile.length() - wilton::support::binmod_postfix.length());
+        auto modname = startmod + "/" + modsubname;
         auto modfullpath = sl::tinydir::full_path(mod);
         res.emplace_back(modname, wilton::support::zip_proto_prefix + modfullpath);
     }
