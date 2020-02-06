@@ -360,7 +360,6 @@ sl::support::optional<uint8_t> parse_exit_code(sl::io::span<char> span) {
     } catch(const std::exception&) {
         return sl::support::optional<uint8_t>();
     }
-    return sl::support::optional<uint8_t>();
 }
 
 std::string create_wilton_config(const wilton::cli::cli_options& opts,
