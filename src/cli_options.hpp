@@ -44,6 +44,7 @@ class cli_options {
     char* debug_port_ptr = nullptr;
     char* new_project_ptr = nullptr;
     char* environment_vars_ptr = nullptr;
+    char* crypt_call_ptr = nullptr;
 
 public:
     poptContext ctx = nullptr;
@@ -59,6 +60,8 @@ public:
     std::string debug_port;
     std::string new_project;
     std::string environment_vars;
+    std::string crypt_call_lib;
+    std::string crypt_call_name;
     int exec_one_liner = 0;
     int print_config = 0;
     int load_only = 0;
@@ -86,6 +89,7 @@ public:
         { "ghc-init", 'g', POPT_ARG_NONE, std::addressof(ghc_init), static_cast<int> ('g'), "Initialize GHC runtime instead of JS engine", nullptr},
         { "new-project", 'n', POPT_ARG_STRING, std::addressof(new_project_ptr), static_cast<int> ('n'), "Create a new 'wilton application' project", nullptr},
         { "environment-vars", 'r', POPT_ARG_STRING, std::addressof(environment_vars_ptr), static_cast<int> ('r'), "Additional environment variables with ':' separator", nullptr},
+        { "crypt-call", 'c', POPT_ARG_STRING, std::addressof(crypt_call_ptr), static_cast<int> ('c'), "Description of the native call in 'libname:callname' format to use for loading encrypted .wlib modules", nullptr},
         { "version", 'v', POPT_ARG_NONE, std::addressof(version), static_cast<int> ('v'), "Show version number", nullptr},
         { "help", 'h', POPT_ARG_NONE, std::addressof(help), static_cast<int> ('h'), "Show this help message", nullptr},
         { nullptr, 0, 0, nullptr, 0, nullptr, nullptr}
@@ -151,6 +155,19 @@ public:
             debug_port = (nullptr != debug_port_ptr) ? std::string(debug_port_ptr) : "";
             new_project = (nullptr != new_project_ptr) ? std::string(new_project_ptr) : "";
             environment_vars = (nullptr != environment_vars_ptr) ? std::string(environment_vars_ptr) : "";
+
+            if (nullptr != crypt_call_ptr) {
+                auto crypt_call = std::string(crypt_call_ptr);
+                auto parts = sl::utils::split(crypt_call, ':');
+                if (2 != parts.size()) {
+                    parse_error.append("Invalid 'crypt-call' parameter specified,");
+                    parse_error.append(" expected format: [libname:callname], value: [");
+                    parse_error.append(crypt_call);
+                    parse_error.append("]");
+                }
+                crypt_call_lib = std::move(parts.at(0));
+                crypt_call_name = std::move(parts.at(1));
+            }
         }
     }
 

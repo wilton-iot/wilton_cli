@@ -79,15 +79,24 @@ int find_launcher_args_end(int argc, char** argv) {
     return argc;
 }
 
-std::string read_appname(const std::string& appdir) {
+sl::support::optional<sl::json::value> load_app_config(const std::string& appdir) {
     auto pconf = sl::tinydir::path(appdir + "conf/");
     if (pconf.exists()) {
         auto cfile = sl::tinydir::path(appdir + "conf/config.json");
         if (cfile.exists() && !cfile.is_directory()) {
             auto src = cfile.open_read();
-            auto json = sl::json::load(src);
-            return json["appname"].as_string_nonempty_or_throw("conf/config.json:appname");
+            auto val = sl::json::load(src);
+            return sl::support::make_optional(std::move(val));
         }
+    }
+    return sl::support::optional<sl::json::value>();
+}
+
+std::string read_appname(const std::string& appdir) {
+    auto conf = load_app_config(appdir);
+    if (conf.has_value()) {
+        auto& json = conf.value();
+        return json["appname"].as_string_nonempty_or_throw("conf/config.json:appname");
     }
     return std::string();
 }
@@ -332,10 +341,49 @@ std::string choose_default_engine(const std::string& opts_script_engine_name, co
     return std::string(WILTON_DEFAULT_SCRIPT_ENGINE_STR);
 }
 
-void load_script_engine(const std::string& script_engine, const std::string& wilton_home,
-        const std::string& modurl, const std::vector<std::pair<std::string, std::string>>& env_vars) {
+void report_loader_error(const std::string& appdir) {
+    auto conf = load_app_config(appdir);
+    auto msg = std::string("Application loader error");
+    if (conf.has_value()) {
+        auto& json = conf.value();
+        msg = json["loadermsg"].as_string(msg);
+    }
+#ifdef STATICLIB_WINDOWS
+    dyload_module("wilton_winscm");
+    auto pars = sl::json::dumps({
+        {"caption": ""},
+        {"text": msg},
+        {"icon": "error"},
+    });
+    char* out = nullptr;
+    int out_len = 0;
+    auto err = wiltoncall("winscm_misc_show_message_box",
+            pars.c_str(), static_cast<int>(pars.length()),
+            std::addressof(out), std::addressof(out_len));
+    if (nullptr !== err) {
+        wilton_free(err);
+    }
+#else // !STATICLIB_WINDOWS
+    std::cerr << msg << std::endl;
+#endif // STATICLIB_WINDOWS
+}
+
+void load_pre_engine_libs(const wilton::cli::cli_options& opts, const std::string& appdir) {
     dyload_module("wilton_logging");
-    dyload_module("wilton_loader");
+    if (!opts.crypt_call_lib.empty()) {
+        dyload_module(opts.crypt_call_lib);
+    }
+    auto name = std::string("wilton_loader");
+    auto err = wilton_dyload(name.c_str(), static_cast<int>(name.length()), nullptr, 0);
+    if (nullptr != err) {
+        report_loader_error(appdir);
+        wilton::support::throw_wilton_error(err, TRACEMSG(err));
+    }
+}
+
+void load_script_engine(const std::string& script_engine,
+        const std::string& wilton_home, const std::string& modurl,
+        const std::vector<std::pair<std::string, std::string>>& env_vars) {
     if ("rhino" != script_engine && "nashorn" != script_engine) {
         dyload_module("wilton_" + script_engine);
     } else {
@@ -395,7 +443,8 @@ std::string create_wilton_config(const wilton::cli::cli_options& opts,
         {"compileTimeOS", "macos"},
 #endif // OS
         {"debugConnectionPort", debug_port},
-        {"traceEnable", 0 != opts.trace_enable}
+        {"traceEnable", 0 != opts.trace_enable},
+        {"cryptCall", opts.crypt_call_name}
     });
     if (0 != opts.print_config) {
         std::cout << startup_call << std::endl;
@@ -409,7 +458,8 @@ uint8_t run_new_project(const wilton::cli::cli_options& opts,
         const std::string& wilton_home, const std::string& modurl,
         std::vector<sl::json::value> packages, const std::string& debug_port,
         std::vector<sl::json::field> env_vars,
-        const std::vector<std::pair<std::string, std::string>>& env_vars_pairs) {
+        const std::vector<std::pair<std::string, std::string>>& env_vars_pairs,
+        const std::string& appdir) {
 
     // startup call
     auto startup_call = sl::json::dumps({
@@ -434,6 +484,9 @@ uint8_t run_new_project(const wilton::cli::cli_options& opts,
         wilton_free(err_init);
         return 1;
     }
+
+    // load necessary libs
+    load_pre_engine_libs(opts, appdir);
 
     // load script engine
     load_script_engine(script_engine, wilton_home, modurl, env_vars_pairs);
@@ -522,6 +575,9 @@ uint8_t run_startup_script(const wilton::cli::cli_options& opts,
         wilton_free(err_init);
         return 1;
     }
+
+    // load necessary libs
+    load_pre_engine_libs(opts, appdir);
 
     // load script engine
     load_script_engine(script_engine, wilton_home, modurl, env_vars_pairs);
@@ -639,7 +695,7 @@ int main(int argc, char** argv) {
         if (!opts.new_project.empty()) {
             rescode = run_new_project(opts, script_engine, wilton_exec, wilton_home,
                     modurl, std::move(packages), debug_port, std::move(env_vars),
-                    env_vars_pairs);
+                    env_vars_pairs, appdir);
         } else {
             rescode = run_startup_script(opts, script_engine, wilton_exec, wilton_home,
                     modurl, std::move(packages), debug_port, std::move(env_vars),

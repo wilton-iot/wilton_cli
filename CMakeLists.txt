@@ -61,6 +61,7 @@ set ( ${PROJECT_NAME}_LIBS
         wilton_signal
         wilton_core
         wilton_logging
+        wilton_crypto
         wilton_loader
         wilton_zip
         ${${PROJECT_NAME}_PLATFORM_LIBS}
