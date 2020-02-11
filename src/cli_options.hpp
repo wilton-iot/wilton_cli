@@ -53,7 +53,6 @@ public:
 
     // public options list
     std::string modules_dir_or_zip;
-    std::string application_dir;
     std::string startup_module_name;
     std::string binary_modules_paths;
     std::string script_engine_name;
@@ -79,7 +78,6 @@ public:
         { "js-modules-dir-or-zip", 'm', POPT_ARG_STRING, std::addressof(modules_dir_or_zip_ptr), static_cast<int> ('m'), "Path to JavaScript modules directory or ZIP bundle", nullptr},
         { "startup-module-name", 's', POPT_ARG_STRING, std::addressof(startup_module_name_ptr), static_cast<int> ('s'), "Name of the startup module", nullptr},
         { "binary-modules", 'b', POPT_ARG_STRING, std::addressof(binary_modules_paths_ptr), static_cast<int> ('b'), "Binary modules paths list with ':' separator", nullptr},
-        { "application-dir", 'a', POPT_ARG_STRING, std::addressof(application_dir_ptr), static_cast<int> ('a'), "Path to application directory", nullptr},
         { "javascript-engine", 'j', POPT_ARG_STRING, std::addressof(script_engine_name_ptr), static_cast<int> ('j'), "Name of the JavaScript engine to use", nullptr},
         { "debug-enable-on-port", 'd', POPT_ARG_STRING, std::addressof(debug_port_ptr), static_cast<int> ('d'), "Port to use for debugger", nullptr},
         { "load-only", 'l', POPT_ARG_NONE, std::addressof(load_only), static_cast<int> ('l'), "Load specified script without calling 'main' function", nullptr},
@@ -149,8 +147,6 @@ public:
             std::replace(startup_module_name.begin(), startup_module_name.end(), '\\', '/');
             binary_modules_paths = nullptr != binary_modules_paths_ptr ? std::string(binary_modules_paths_ptr): "";
             std::replace(binary_modules_paths.begin(), binary_modules_paths.end(), '\\', '/');
-            application_dir = nullptr != application_dir_ptr ? std::string(application_dir_ptr) : "";
-            std::replace(application_dir.begin(), application_dir.end(), '\\', '/');
             script_engine_name = nullptr != script_engine_name_ptr ? std::string(script_engine_name_ptr) : "";
             debug_port = (nullptr != debug_port_ptr) ? std::string(debug_port_ptr) : "";
             new_project = (nullptr != new_project_ptr) ? std::string(new_project_ptr) : "";

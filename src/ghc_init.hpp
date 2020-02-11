@@ -39,7 +39,7 @@ namespace wilton {
 namespace cli {
 namespace ghc {
 
-void init_and_run_main(const std::string& appdir, const std::string& startup_desc,
+void init_and_run_main(const std::string& wilton_home, const std::string& startup_desc,
         const std::vector<std::string>& appargs) {
     auto startup_parts = sl::utils::split(startup_desc, ':');
     if (2 != startup_parts.size() || startup_parts.at(0).empty() || startup_parts.at(1).empty()) {
@@ -51,7 +51,7 @@ void init_and_run_main(const std::string& appdir, const std::string& startup_des
     // prepare wilton config
     auto wilton_config = sl::json::dumps({
         {"defaultScriptEngine", "ghc"},
-        {"applicationDirectory", appdir},
+        {"wiltonHome", wilton_home},
 // add compile-time OS
 #if defined(STATICLIB_ANDROID)
         {"compileTimeOS", "android"}
@@ -79,7 +79,7 @@ void init_and_run_main(const std::string& appdir, const std::string& startup_des
 
     // init ghc runtime
     auto ghc_config = sl::json::dumps({
-        {"shimLibDirectory", appdir + "bin"}
+        {"shimLibDirectory", wilton_home + "bin"}
     });
     auto ghc_init = std::string("ghc_init");
     char* ghc_init_res = nullptr;
