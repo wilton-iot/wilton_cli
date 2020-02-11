@@ -37,7 +37,6 @@ namespace cli {
 class cli_options {
     std::vector<struct poptOption> table;
     char* modules_dir_or_zip_ptr = nullptr;
-    char* application_dir_ptr = nullptr;
     char* startup_module_name_ptr = nullptr;
     char* binary_modules_paths_ptr = nullptr;
     char* script_engine_name_ptr = nullptr;
