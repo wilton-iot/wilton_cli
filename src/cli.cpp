@@ -343,27 +343,31 @@ std::string choose_default_engine(const std::string& opts_script_engine_name, co
 
 void report_loader_error(const std::string& appdir) {
     auto conf = load_app_config(appdir);
+    auto caption = std::string("wilton");
     auto msg = std::string("Application loader error");
     if (conf.has_value()) {
         auto& json = conf.value();
+        caption = json["appname"].as_string(caption);
         msg = json["loadermsg"].as_string(msg);
     }
 #ifdef STATICLIB_WINDOWS
     dyload_module("wilton_winscm");
     auto pars = sl::json::dumps({
-        {"caption": ""},
-        {"text": msg},
-        {"icon": "error"},
+        {"caption", caption},
+        {"text", msg},
+        {"icon", "error"},
     });
     char* out = nullptr;
     int out_len = 0;
-    auto err = wiltoncall("winscm_misc_show_message_box",
+    auto name = std::string("winscm_misc_show_message_box");
+    auto err = wiltoncall(name.c_str(), static_cast<int>(name.length()),
             pars.c_str(), static_cast<int>(pars.length()),
             std::addressof(out), std::addressof(out_len));
-    if (nullptr !== err) {
+    if (nullptr != err) {
         wilton_free(err);
     }
 #else // !STATICLIB_WINDOWS
+    (void) caption;
     std::cerr << msg << std::endl;
 #endif // STATICLIB_WINDOWS
 }
