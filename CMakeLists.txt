@@ -84,11 +84,6 @@ if ( STATICLIB_TOOLCHAIN MATCHES "windows_.+" )
     set_property ( TARGET wiltonw APPEND_STRING PROPERTY LINK_FLAGS "/manifest:no" )
     get_target_property ( wiltonw_LINK_FLAGS wiltonw LINK_FLAGS )
     if ( STATICLIB_TOOLCHAIN MATCHES "windows_amd64_.+" )
-        # no chakra on winxp
-        target_compile_definitions ( ${PROJECT_NAME} PRIVATE
-                -DWILTON_DEFAULT_SCRIPT_ENGINE=chakra )
-        target_compile_definitions ( wiltonw PRIVATE
-                -DWILTON_DEFAULT_SCRIPT_ENGINE=chakra )
         set ( wiltonw_LINK_FLAGS "${wiltonw_LINK_FLAGS} /subsystem:windows,6.01 /entry:mainCRTStartup" )
     elseif ( STATICLIB_TOOLCHAIN MATCHES "windows_i386_.+" )
         set ( wiltonw_LINK_FLAGS "${wiltonw_LINK_FLAGS} /subsystem:windows,5.01 /entry:mainCRTStartup" )
@@ -98,18 +93,12 @@ endif ( )
 
 # mac dep paths
 if ( STATICLIB_TOOLCHAIN MATCHES "macosx_.+" )
-	add_custom_command ( TARGET ${PROJECT_NAME} POST_BUILD
-			COMMAND ${WILTON_DIR}/resources/scripts/mac-deps.sh 
-					${CMAKE_EXECUTABLE_PREFIX}${PROJECT_NAME}${CMAKE_EXECUTABLE_SUFFIX}
-			WORKING_DIRECTORY ${CMAKE_RUNTIME_OUTPUT_DIRECTORY}
-			COMMENT "Rewriting dependency paths: [${CMAKE_EXECUTABLE_PREFIX}${PROJECT_NAME}${CMAKE_EXECUTABLE_SUFFIX}]" )
+    add_custom_command ( TARGET ${PROJECT_NAME} POST_BUILD
+                COMMAND ${WILTON_DIR}/resources/scripts/mac-deps.sh 
+                        ${CMAKE_EXECUTABLE_PREFIX}${PROJECT_NAME}${CMAKE_EXECUTABLE_SUFFIX}
+                WORKING_DIRECTORY ${CMAKE_RUNTIME_OUTPUT_DIRECTORY}
+                COMMENT "Rewriting dependency paths: [${CMAKE_EXECUTABLE_PREFIX}${PROJECT_NAME}${CMAKE_EXECUTABLE_SUFFIX}]" )
 endif ( )
 
 # debuginfo
 staticlib_extract_debuginfo_executable ( ${PROJECT_NAME} )
-
-# default engine
-if ( STATICLIB_TOOLCHAIN MATCHES "(linux|macosx)_.+" )
-    target_compile_definitions ( ${PROJECT_NAME} PRIVATE
-            -DWILTON_DEFAULT_SCRIPT_ENGINE=jsc )
-endif ( )
