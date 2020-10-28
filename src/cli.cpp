@@ -276,18 +276,23 @@ std::vector<sl::json::field> collect_env_vars() {
     return vec;
 }
 
-std::string write_temp_one_liner(const std::string& wilton_home, const std::string& deps, const std::string& code) {
+std::string write_temp_one_liner(const std::string& deps, const std::string& code) {
     // prepare tmp file path
     auto rsg = sl::utils::random_string_generator();
     auto name = "wilton_" + rsg.generate(8) + ".js";
-#ifdef STATICLIB_LINUX
+#ifdef STATICLIB_WINDOWS
+    auto wbuf = std::wstring(static_cast<size_t>());
+    wbuf.resize(MAX_PATH + 1);
+    auto len = ::GetTempPathW(static_cast<DWORD>(wbuf.length()), std::addressof(wbuf.front()));
+    // note: unlikely failure to obtain temp dir may be ignored for one-liner purposes
+    wbuf.resize(len);
+    auto dir = sl::utils::narrow(wbuf);
+    auto path_str = dir + "\\" + name;
+#else // !STATICLIB_WINDOWS
     auto path_str = "/tmp/" + name;
-#else // !STATICLIB_LINUX
-    auto path_str =  wilton_home + "work/" + name;
-#endif // STATICLIB_LINUX
+#endif // STATICLIB_WINDOWS
     auto path = sl::tinydir::path(path_str);
-    auto tmpl_path = sl::tinydir::path(wilton_home + "conf/one-liner-template.js");
-    
+
     // prepare deps
     auto deps_line = std::string();
     auto args_line = std::string();
@@ -312,8 +317,19 @@ std::string write_temp_one_liner(const std::string& wilton_home, const std::stri
         }
     }
 
+    std::string tmpl = R"(
+define([{{deps_line}}], function({{args_line}}) {
+    "use strict";
+    return {
+        main: function() {
+            var RESULT = {{code}};
+            print(RESULT);
+        }
+    };
+});)";
+
     // load and format template
-    auto tmpl_src = tmpl_path.open_read();
+    auto tmpl_src = sl::io::array_source(tmpl.data(), tmpl.length());
     auto src = sl::io::make_replacer_source(tmpl_src, {
         {"deps_line", deps_line},
         {"args_line", args_line},
@@ -518,7 +534,7 @@ uint8_t run_startup_script(const wilton::cli::cli_options& opts,
         const std::vector<std::string>& appargs) {
     // check startup script
     auto startjs = 0 == opts.exec_one_liner ? opts.startup_script :
-            write_temp_one_liner(wilton_home, opts.exec_deps, opts.exec_code);
+            write_temp_one_liner(opts.exec_deps, opts.exec_code);
     auto tmpcleaner = sl::support::defer([&opts, &startjs]() STATICLIB_NOEXCEPT {
         if (0 != opts.exec_one_liner) {
             std::remove(startjs.c_str());
