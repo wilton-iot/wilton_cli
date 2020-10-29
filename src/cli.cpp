@@ -281,7 +281,7 @@ std::string write_temp_one_liner(const std::string& deps, const std::string& cod
     auto rsg = sl::utils::random_string_generator();
     auto name = "wilton_" + rsg.generate(8) + ".js";
 #ifdef STATICLIB_WINDOWS
-    auto wbuf = std::wstring(static_cast<size_t>());
+    auto wbuf = std::wstring();
     wbuf.resize(MAX_PATH + 1);
     auto len = ::GetTempPathW(static_cast<DWORD>(wbuf.length()), std::addressof(wbuf.front()));
     // note: unlikely failure to obtain temp dir may be ignored for one-liner purposes
