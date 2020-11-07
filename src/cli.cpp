@@ -431,6 +431,23 @@ sl::support::optional<uint8_t> parse_exit_code(sl::io::span<char> span) {
     }
 }
 
+bool check_es_module(const std::string& path) {
+    auto fi = sl::tinydir::file_source(path);
+    auto limited = sl::io::make_limited_source(fi, 1024);
+    auto buffered = sl::io::make_buffered_source(limited);
+    for (size_t i = 0; i < 32; i++) {
+        auto line = buffered.read_line();
+        auto trimmed = sl::utils::trim(line);
+        if (sl::utils::starts_with(trimmed, "define")) {
+            return false;
+        }
+        if (sl::utils::starts_with(trimmed, "import")) {
+            return true;
+        }
+    }
+    return false;
+}
+
 std::string create_wilton_config(const wilton::cli::cli_options& opts,
         const std::string& script_engine, const std::string& wilton_exec,
         const std::string& wilton_home, const std::string& modurl,
@@ -566,28 +583,28 @@ uint8_t run_startup_script(const wilton::cli::cli_options& opts,
     // prepare paths
     auto paths = prepare_paths(opts.binary_modules_paths, startmod, startmod_dir);
 
+    // prepare args
+    auto args_json = std::vector<sl::json::value>();
+    for (auto& st : appargs) {
+        args_json.emplace_back(st);
+    }
+
     // startup call
     auto startup_call = std::string();
     if (0 != opts.load_only) {
         startup_call = sl::json::dumps({
             {"module", startmod_id}
         });
-    } else if (0 != opts.es_module) {
+    } else if (0 != opts.es_module || check_es_module(startjs_full)) {
         startup_call = sl::json::dumps({
-            {"modtype", "es"},
-            {"module", "file://" + startjs_full}
+            {"esmodule", "file://" + startjs_full},
+            {"args", std::move(args_json)}
         });
     } else {
         startup_call = sl::json::dumps({
             {"module", startmod_id},
-            {"func", "main"},
-            {"args", [&appargs] {
-                    auto res = std::vector<sl::json::value>();
-                    for (auto& st : appargs) {
-                        res.emplace_back(st);
-                    }
-                    return res;
-                }()}
+            {"func", "main"}, // optional, kept for compat
+            {"args", std::move(args_json)}
         });
     }
     // prepare wilton config
