@@ -568,7 +568,16 @@ uint8_t run_startup_script(const wilton::cli::cli_options& opts,
 
     // startup call
     auto startup_call = std::string();
-    if (0 == opts.load_only) {
+    if (0 != opts.load_only) {
+        startup_call = sl::json::dumps({
+            {"module", startmod_id}
+        });
+    } else if (0 != opts.es_module) {
+        startup_call = sl::json::dumps({
+            {"modtype", "es"},
+            {"module", "file://" + startjs_full}
+        });
+    } else {
         startup_call = sl::json::dumps({
             {"module", startmod_id},
             {"func", "main"},
@@ -579,10 +588,6 @@ uint8_t run_startup_script(const wilton::cli::cli_options& opts,
                     }
                     return res;
                 }()}
-        });
-    } else  {
-        startup_call = sl::json::dumps({
-            {"module", startmod_id}
         });
     }
     // prepare wilton config

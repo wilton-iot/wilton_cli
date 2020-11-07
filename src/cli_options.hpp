@@ -61,6 +61,7 @@ public:
     std::string crypt_call_lib;
     std::string crypt_call_name;
     int exec_one_liner = 0;
+    int es_module = 0;
     int print_config = 0;
     int load_only = 0;
     int help = 0;
@@ -81,6 +82,7 @@ public:
         { "debug-enable-on-port", 'd', POPT_ARG_STRING, std::addressof(debug_port_ptr), static_cast<int> ('d'), "Port to use for debugger", nullptr},
         { "load-only", 'l', POPT_ARG_NONE, std::addressof(load_only), static_cast<int> ('l'), "Load specified script without calling 'main' function", nullptr},
         { "exec-one-liner", 'e', POPT_ARG_NONE, std::addressof(exec_one_liner), static_cast<int> ('e'), "Execute one-liner script", nullptr},
+        { "exec-es-module", 'x', POPT_ARG_NONE, std::addressof(es_module), static_cast<int> ('x'), "Execute specified script as a ES module", nullptr},
         { "print-config", 'p', POPT_ARG_NONE, std::addressof(print_config), static_cast<int> ('p'), "Print config on startup", nullptr},
         { "trace-enable", 't', POPT_ARG_NONE, std::addressof(trace_enable), static_cast<int> ('t'), "Enables trace calls gathering", nullptr},
         { "ghc-init", 'g', POPT_ARG_NONE, std::addressof(ghc_init), static_cast<int> ('g'), "Initialize GHC runtime instead of JS engine", nullptr},
