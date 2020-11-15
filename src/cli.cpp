@@ -141,10 +141,13 @@ char platform_delimiter(const std::string& arg) {
     return delim;
 }
 
-std::vector<sl::json::field> prepare_paths(const std::string& binary_modules_paths,
-        const std::string& startmod, const std::string& startmod_dir) {
+std::vector<sl::json::field> prepare_paths(const std::string& wilton_home,
+        const std::string& binary_modules_paths, const std::string& startmod,
+        const std::string& startmod_dir) {
     std::vector<sl::json::field> res;
+    // startup module
     res.emplace_back(startmod, wilton::support::file_proto_prefix + startmod_dir);
+    // binary modules
     auto binmods = sl::utils::split(binary_modules_paths, platform_delimiter(binary_modules_paths));
     for(auto& mod : binmods) {
         if (!sl::utils::ends_with(mod, wilton::support::binmod_postfix)) {
@@ -161,6 +164,23 @@ std::vector<sl::json::field> prepare_paths(const std::string& binary_modules_pat
         auto modname = startmod + "/" + modsubname;
         auto modfullpath = sl::tinydir::full_path(mod);
         res.emplace_back(modname, wilton::support::zip_proto_prefix + modfullpath);
+    }
+    // vendor libs
+    auto libdir = sl::tinydir::path(wilton_home + "/lib");
+    if (libdir.exists()) {
+        for (sl::tinydir::path& libpath : sl::tinydir::list_directory(libdir.filepath())) {
+            if (libpath.is_directory()) {
+                auto& modname = libpath.filename();
+                res.emplace_back(modname, wilton::support::file_proto_prefix + libpath.filepath());
+            } else if (sl::utils::ends_with(libpath.filename(), ".js")) {
+                const auto& modname = libpath.filename().substr(0, libpath.filename().length() - 3);
+                const auto& dirpath = sl::utils::strip_filename(libpath.filepath());
+                res.emplace_back(modname, wilton::support::file_proto_prefix + dirpath + modname);
+            } else if (sl::utils::ends_with(libpath.filename(), ".wlib")) {
+                const auto& modname = libpath.filename().substr(0, libpath.filename().length() - 5);
+                res.emplace_back(modname, wilton::support::zip_proto_prefix + libpath.filepath());
+            }
+        }
     }
     return res;
 }
@@ -581,7 +601,7 @@ uint8_t run_startup_script(const wilton::cli::cli_options& opts,
     }
 
     // prepare paths
-    auto paths = prepare_paths(opts.binary_modules_paths, startmod, startmod_dir);
+    auto paths = prepare_paths(wilton_home, opts.binary_modules_paths, startmod, startmod_dir);
 
     // prepare args
     auto args_json = std::vector<sl::json::value>();
