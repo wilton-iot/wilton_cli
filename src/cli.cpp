@@ -41,6 +41,10 @@ extern char** environ;
 #include "popt.h"
 #include "utf8.h"
 
+#include "staticlib/support.hpp"
+#ifdef STATICLIB_WINDOWS
+#include "staticlib/support/windows.hpp"
+#endif // STATICLIB_WINDOWS
 #include "staticlib/io.hpp"
 #include "staticlib/json.hpp"
 #include "staticlib/utils.hpp"
@@ -200,6 +204,10 @@ void init_signals() {
         wilton_free(err_init);
         throw wilton::support::exception(msg);
     }
+#ifdef STATICLIB_WINDOWS
+    // https://stackoverflow.com/a/9719240/314015
+    ::SetErrorMode(SEM_FAILCRITICALERRORS | SEM_NOGPFAULTERRORBOX);
+#endif // STATICLIB_WINDOWS
 }
 
 sl::json::value read_json_file(const std::string& url) {
