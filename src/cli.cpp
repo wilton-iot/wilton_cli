@@ -655,7 +655,9 @@ uint8_t run_startup_script(const wilton::cli::cli_options& opts,
     load_script_engine(script_engine, wilton_home, modurl, env_vars_pairs);
 
     // init signals/ctrl+c to allow their use from js
-    init_signals();
+    if ("rhino" != script_engine && "nashorn" != script_engine) {
+        init_signals();
+    }
 
     // call script
     char* out = nullptr;
